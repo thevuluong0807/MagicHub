@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.6.0** (chưa tag). CI: v0.1.0 xanh; v0.4.0 và v0.5.0 job Windows đỏ (Linux/macOS xanh) — nghi bước `iscc` (không có trong PATH / `/D` bị Git Bash đổi); đã sửa trong workflow, cần tag mới để xác nhận. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.7.0** (chưa tag). CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -20,6 +20,13 @@
 
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
+
+## 2026-10-19 — v0.7.0
+- Sửa gốc lỗi Crop không mở: `dialogs.py` import `..actions` (sai) thay `.actions`; lỗi `ask` giờ báo lên khay. Crop mở với khung full mặc định; hộp thoại vừa khít ảnh.
+- Crop làm lại (`dialogs._CropLabel`): xem trước áp EXIF như bước cắt thật (trước đây ảnh điện thoại xem trước lệch hướng so với kết quả), không phóng to ảnh nhỏ, kéo trong vùng = di chuyển, kéo cạnh/góc = đổi cỡ, khoá tỉ lệ (1:1, 4:3, 3:2, 16:9, 3:4, 9:16), tối vùng bị bỏ + lưới 1/3 + kích thước px thật. Ảnh lưu qua `save_img` (JPEG chất lượng 95, alpha→nền trắng). Test `test_cropwidget` (sự kiện chuột giả).
+- `actions/extra.py`: Resize (ảnh, % hoặc px), Strip (EXIF ảnh; metadata/XML/JS PDF), Số trang (`edit.headfoot`, `{n}` `{N}`, đúng cả trang xoay), Flatten (`doc.bake`), Unlock (cần mật khẩu), Compare (`organize.compare`, đúng 2 PDF → PDF tô đỏ chỗ khác). Test `test_v07`.
+- HEIC/HEIF: thêm `pillow-heif`, `heic/heif` vào loại ảnh (convert, markup, crop… dùng được); build script thêm `--collect-all pillow_heif`.
+- Chưa làm: xoá nền ảnh (rembg quá nặng cho gói chính), thử chuột thật Crop mới.
 
 ## 2026-10-19 — v0.6.0
 - Sandbox LibreOffice bằng bubblewrap (`base.sandbox_prefix`): ro-bind `/`, không mạng, tmpfs `/tmp` `/run`, chỉ ghi outdir + profile; file nguồn ro-bind lại. Test `test_sandbox` (ghi ngoài vùng bị chặn, không mạng) + test_convert chạy qua sandbox.

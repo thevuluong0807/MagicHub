@@ -312,10 +312,103 @@ def test_edit(td):
     assert im.getpixel((200, 150)) == (255, 255, 255)
 
 
+def test_v07(td):
+    pdf = make_pdf(td / "a.pdf", pages=3)
+    # header/footer: trang thường + trang xoay 90
+    d = pymupdf.open(str(pdf)); d[1].set_rotation(90); d.saveIncr()
+    (o,) = run("edit.headfoot", [pdf], header="HEAD", footer="{n} / {N}", align="Phải", size=10)
+    d = pymupdf.open(str(o))
+    assert "HEAD" in d[0].get_text() and "3 / 3" in d[2].get_text() and "2 / 3" in d[1].get_text()
+    for pg in (d[0], d[1]):  # chữ phải nằm ngang trong hệ toạ độ hiển thị (trang xoay cũng vậy)
+        ln = [l for b in pg.get_text("dict")["blocks"] for l in b.get("lines", []) if "/ 3" in "".join(s["text"] for s in l["spans"])][0]
+        m = pg.rotation_matrix  # get_text dùng toạ độ gốc: đổi sang hệ hiển thị
+        dv = pymupdf.Point(ln["dir"]) * m - pymupdf.Point(0, 0) * m
+        bb = pymupdf.Rect(ln["bbox"]) * m
+        assert abs(dv.x - 1) < 1e-3, dv
+        assert bb.x0 > pg.rect.width * 0.7 and bb.y0 > pg.rect.height * 0.9, bb
+    # flatten / strip / unlock
+    d = pymupdf.open(str(pdf)); d.set_metadata({"author": "Bi Mat"}); d[0].add_text_annot((50, 50), "ghi chu"); d.save(str(td / "m.pdf"))
+    (o,) = run("edit.flatten", [td / "m.pdf"])
+    assert not list(pymupdf.open(str(o))[0].annots())
+    (o,) = run("edit.strip", [td / "m.pdf"])
+    assert not pymupdf.open(str(o)).metadata.get("author")
+    (enc,) = run("edit.protect", [pdf], password="pw")
+    try:
+        run("edit.unlock", [enc], password="sai")
+        raise AssertionError
+    except ValueError:
+        pass
+    (o,) = run("edit.unlock", [enc], password="pw")
+    assert not pymupdf.open(str(o)).needs_pass
+    # compare: khác 1 trang
+    b = make_pdf(td / "b.pdf", pages=3, text="Hello Secret 123")
+    d = pymupdf.open(str(b)); d[1].insert_text((72, 300), "KHAC BIET", fontsize=30); d.save(str(td / "b2.pdf"))
+    assert by_id("organize.compare").accepts([pdf, td / "b2.pdf"]) and not by_id("organize.compare").accepts([pdf])
+    (o,) = run("organize.compare", [pdf, td / "b2.pdf"])
+    px = [pymupdf.open(str(o))[i].get_pixmap(dpi=40) for i in range(3)]
+    red = lambda pm: sum(1 for x in range(0, pm.width, 2) for y in range(0, pm.height, 2) if pm.pixel(x, y)[0] > 180 and pm.pixel(x, y)[1] < 80)
+    assert red(px[0]) == 0 and red(px[1]) > 5, (red(px[0]), red(px[1]))
+    # ảnh: resize, strip exif, crop giữ EXIF xoay, heic opener
+    im = Image.new("RGB", (200, 100), "red")
+    ex = Image.Exif(); ex[274] = 6; ex[0x010F] = "Cam"  # Orientation=6 -> xoay còn 100x200
+    jpg = td / "ph.jpg"; im.save(jpg, exif=ex)
+    (o,) = run("edit.resize", [jpg], mode="Phần trăm (%)", value=50)
+    assert Image.open(o).size == (50, 100)
+    (o,) = run("edit.resize", [jpg], mode="Chiều rộng (px)", value=40)
+    assert Image.open(o).size == (40, 80)
+    (o,) = run("edit.strip", [jpg])
+    assert Image.open(o).size == (100, 200) and not dict(Image.open(o).getexif())
+    (o,) = run("edit.crop", [jpg], box=(0, 0, 1, 0.5))
+    assert Image.open(o).size == (100, 100)
+    assert "heic" in __import__("magichub.actions.base", fromlist=["x"]).KINDS["img"]
+
+
+def test_cropwidget():
+    from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+    from PySide6.QtGui import QMouseEvent, QPixmap
+    from PySide6.QtWidgets import QApplication
+
+    from magichub.dialogs import _CropLabel
+
+    app = QApplication.instance() or QApplication([])
+    from magichub.dialogs import _preview  # import trong hàm: lỗi đường dẫn import lộ ra ở đây
+    pdf = make_pdf(Path(tempfile.mkdtemp()) / "c.pdf", pages=1)
+    png = pdf.with_suffix(".png"); Image.new("RGB", (80, 40), "blue").save(png)
+    assert _preview(pdf).width() > 100 and _preview(png).width() == 80
+    lab = _CropLabel(QPixmap(400, 300))
+
+    def ev(t, x, y):
+        b = Qt.LeftButton if t != QEvent.MouseMove or lab.mode else Qt.NoButton
+        e = QMouseEvent(t, QPointF(x, y), QPointF(x, y), Qt.LeftButton, b, Qt.NoModifier)
+        {QEvent.MouseButtonPress: lab.mousePressEvent, QEvent.MouseMove: lab.mouseMoveEvent,
+         QEvent.MouseButtonRelease: lab.mouseReleaseEvent}[t](e)
+
+    def drag(a, b):
+        ev(QEvent.MouseButtonPress, *a); ev(QEvent.MouseMove, *b); ev(QEvent.MouseButtonRelease, *b)
+
+    f = lab.sel
+    assert (f.left(), f.top(), f.right(), f.bottom()) == (0, 0, 400, 300)  # mặc định khung full
+    drag((400, 300), (250, 200))  # kéo góc dưới-phải vào
+    drag((0, 0), (50, 50))  # kéo góc trên-trái vào
+    r = lab.sel
+    assert (r.left(), r.top(), r.right(), r.bottom()) == (50, 50, 250, 200)
+    drag((150, 120), (170, 130))  # kéo trong vùng = di chuyển
+    assert (lab.sel.left(), lab.sel.top()) == (70, 60) and lab.sel.width() == 200
+    drag((270, 130), (300, 130))  # kéo cạnh phải = đổi rộng
+    assert lab.sel.right() == 300 and lab.sel.left() == 70 and lab.sel.height() == 150
+    lab.set_ratio(1)
+    assert abs(lab.sel.width() - lab.sel.height()) < 1e-6
+    drag((10, 10), (500, 500))  # kéo ra ngoài ảnh bị kẹp trong ảnh, giữ tỉ lệ 1:1
+    r = lab.sel
+    assert r.right() <= 400 and r.bottom() <= 300 and abs(r.width() - r.height()) < 1e-6 and r.height() == 290
+
+
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)
+    test_cropwidget()
+    print("ok test_cropwidget")
     print("ok test_geometry\nALL PASS")

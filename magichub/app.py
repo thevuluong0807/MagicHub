@@ -188,7 +188,11 @@ class Hub(QObject):
             return
         params = {}
         if act.ask:
-            params = act.ask(self.files)
+            try:
+                params = act.ask(self.files)
+            except Exception as e:  # hộp thoại lỗi không được nuốt im
+                log.exception("ask %s", act.id)
+                return self.notify("MagicHub", f"Không mở được hộp thoại: {e}", error=True)
             if params is None:
                 return
         self.notify("MagicHub", f"Đang xử lý: {act.tip}…")

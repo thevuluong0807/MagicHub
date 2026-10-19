@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 import re
+from pathlib import Path
 
 import pymupdf
 from PIL import Image, ImageOps
@@ -206,6 +207,21 @@ def highlight(files, p):
     return outs
 
 
+def save_img(im, out):
+    """Lưu theo đuôi file; JPEG/BMP không có alpha nên đè lên nền trắng."""
+    out = Path(out)
+    jpg = out.suffix.lower() in (".jpg", ".jpeg")
+    if (jpg or out.suffix.lower() == ".bmp") and im.mode in ("RGBA", "LA", "P"):
+        im = im.convert("RGBA")
+        bg = Image.new("RGB", im.size, "white")
+        bg.paste(im, mask=im.getchannel("A"))
+        im = bg
+    elif im.mode not in ("RGB", "RGBA", "L"):
+        im = im.convert("RGB")
+    im.save(out, **({"quality": 95} if jpg or out.suffix.lower() == ".webp" else {}))
+    return out
+
+
 # ---------- Crop ----------
 def _ask_crop(files):
     from ..dialogs import ask_crop
@@ -230,6 +246,6 @@ def crop(files, p):
             outs.append(save_pdf(doc, out))
         else:
             im = ImageOps.exif_transpose(Image.open(f))
-            im.crop((int(x0 * im.width), int(y0 * im.height), int(x1 * im.width), int(y1 * im.height))).save(out)
-            outs.append(out)
+            box = (round(x0 * im.width), round(y0 * im.height), round(x1 * im.width), round(y1 * im.height))
+            outs.append(save_img(im.crop(box), out))
     return outs

@@ -14,7 +14,7 @@ from typing import Callable
 
 KINDS = {
     "pdf": {"pdf"},
-    "img": {"png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff", "gif"},
+    "img": {"png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff", "gif", "heic", "heif"},
     "doc": {"docx", "doc", "odt", "rtf"},
     "xls": {"xlsx", "xls", "ods", "csv"},
     "ppt": {"pptx", "ppt", "odp"},
@@ -22,6 +22,14 @@ KINDS = {
 }
 EXT2KIND = {e: k for k, v in KINDS.items() for e in v}
 GROUPS = [("convert", "Convert"), ("edit", "Edit"), ("organize", "Organize")]
+
+
+try:  # HEIC/HEIF (ảnh iPhone) mở được bằng Pillow khi có pillow-heif
+    import pillow_heif
+
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pass
 
 
 def ext(p) -> str:

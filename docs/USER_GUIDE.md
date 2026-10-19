@@ -15,8 +15,8 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 
 | Loại | Convert | Edit | Organize |
 |---|---|---|---|
-| **PDF** | DOCX, XLSX, PPTX, PNG, JPG, TXT, OCR | Markup, Highlight, Redact, Crop, Protect | Merge (≥2), Split, ↻90°, ↺90°, Compress, Reorder, Pages, Images, Zip |
-| **Ảnh** (png jpg webp bmp tiff gif) | PNG, JPG, WEBP, BMP, PDF (trừ định dạng hiện có) | Markup, Crop | Merge→PDF (≥2), ↻90°, ↺90°, Compress, Zip |
+| **PDF** | DOCX, XLSX, PPTX, PNG, JPG, TXT, OCR | Markup, Highlight, Redact, Crop, Số trang, Protect, Unlock, Flatten, Strip | Merge (≥2), Split, ↻90°, ↺90°, Compress, Reorder, Pages, Images, Compare (đúng 2), Zip |
+| **Ảnh** (png jpg webp bmp tiff gif heic) | PNG, JPG, WEBP, BMP, PDF (trừ định dạng hiện có) | Markup, Crop, Resize, Strip | Merge→PDF (≥2), ↻90°, ↺90°, Compress, Zip |
 | **Word** (docx doc odt rtf) | PDF, TXT, PNG, JPG | — | Zip |
 | **Excel** (xlsx xls ods csv) | PDF, CSV, PNG | — | Zip |
 | **PowerPoint** (pptx ppt odp) | PDF, PNG, JPG, TXT | — | Zip |
@@ -36,7 +36,13 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 | Markup | Trình soạn cho PDF **và ảnh**: Bút, Hình (chữ nhật, elip, đường, mũi tên, tô nền), Chữ (kể cả watermark chéo), Ghi chú, Ảnh (logo/chữ ký), Khung viền | Chọn công cụ, màu, nét; bấm/kéo trên trang. "Mọi trang" áp chữ/ảnh/hình/khung cho cả file. Ctrl+Z hoàn tác, PgUp/PgDn đổi trang |
 | Reorder | Đổi thứ tự / xoay / xoá trang PDF (1 file) | Kéo thả ảnh thu nhỏ; chọn + Xoay phải/trái hoặc Xoá |
 | Highlight | Tô sáng từ khoá | Từ khoá, màu |
-| Crop | Cắt vùng chọn | Kéo chuột trên bản xem trước trang đầu |
+| Crop | Cắt vùng chọn | Kéo vẽ vùng; kéo trong vùng để dời, kéo cạnh/góc để đổi cỡ; chọn tỉ lệ khoá |
+| Resize | Đổi cỡ ảnh | % hoặc chiều rộng px |
+| Số trang | Header/footer | `{n}` trang, `{N}` tổng |
+| Strip | Xoá metadata | Ảnh: EXIF/GPS; PDF: tác giả, XML, JS |
+| Flatten | Ép ghi chú/form | Không sửa lại được |
+| Unlock | Gỡ mật khẩu PDF | Cần mật khẩu hiện tại |
+| Compare | So 2 PDF | Chọn đúng 2 file; kết quả tô đỏ chỗ khác |
 
 ## Dòng lệnh
 ```bash
