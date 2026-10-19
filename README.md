@@ -22,7 +22,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # Windows: 
 .venv/bin/python tests/test_engine.py  # kiểm tra engine
 ```
 
-Cần thêm: **LibreOffice** (convert Office), trên Linux/X11 hoặc Windows/macOS. Chi tiết nền tảng: [docs/PLATFORM.md](docs/PLATFORM.md).
+Cần thêm: **LibreOffice** hoặc **Microsoft Office** (Windows/macOS ưu tiên Office, đổi bằng `engine` trong config) để convert Office, trên Linux/X11 hoặc Windows/macOS. Chi tiết nền tảng: [docs/PLATFORM.md](docs/PLATFORM.md).
 
 ## Tài liệu
 

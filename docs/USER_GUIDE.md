@@ -65,4 +65,6 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 | "Chưa chọn file nào" | Cửa sổ focus phải là file manager đang có file được chọn; thử chọn lại rồi giữ phím |
 | Vòng tròn mở rồi huỷ ngay | Kéo ra ô tác vụ rồi **click** (nhả phím khi chưa trỏ vào tác vụ sẽ huỷ) |
 | Lỗi LibreOffice | Cài LibreOffice; đóng các cửa sổ LibreOffice đang treo |
+| Lỗi Microsoft Office | Đóng hộp thoại đang mở trong Word/Excel/PowerPoint; hoặc đặt `engine` = `libreoffice` ở menu khay |
+| File lớn chạy lâu | Thẻ tiến trình góc dưới-phải hiện % và nút Huỷ |
 | PDF → DOCX/XLSX xấu | Giới hạn đã biết, xem CONSTRAINTS.md |

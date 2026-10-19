@@ -8,8 +8,9 @@ from pathlib import Path
 import pymupdf
 from PIL import Image, ImageOps
 
-from .base import (REGISTRY, Action, action, ext, natural_key, open_pdf, out_path, save_pdf,
-                   soffice_convert, tmpdir, unique)
+from .base import (REGISTRY, Action, action, ext, natural_key, open_pdf, out_path, report, save_pdf, steps,
+                   tmpdir, unique)
+from .office import office_convert as soffice_convert
 
 TARGETS = {
     "pdf": ["docx", "xlsx", "pptx", "png", "jpg", "txt"],
@@ -33,7 +34,7 @@ def render_pdf(pdf, to, base: Path) -> Path:
     else:
         out = unique(base.with_name(f"{base.stem}_{to}"))
         out.mkdir()
-        for i, page in enumerate(doc, 1):
+        for i, page in steps(enumerate(doc, 1), lambda t: f"Trang {t[0]}/{len(doc)}"):
             save(page, out / f"page_{i:03d}.{to}")
     doc.close()
     return out
@@ -43,6 +44,7 @@ def pdf_to_docx(src: Path) -> Path:
     from pdf2docx import Converter
 
     out = out_path(src, new_ext="docx")
+    report(None, "Đang chuyển sang Word (file lớn có thể lâu)…")
     cv = Converter(str(src))
     try:
         cv.convert(str(out))
@@ -57,7 +59,7 @@ def pdf_to_xlsx(src: Path) -> Path:
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
     doc = open_pdf(src)
-    for pno, page in enumerate(doc, 1):
+    for pno, page in steps(enumerate(doc, 1), lambda t: f"Trang {t[0]}/{len(doc)}"):
         for t, tab in enumerate(page.find_tables().tables, 1):
             ws = wb.create_sheet(f"P{pno}_T{t}")
             for row in tab.extract():
@@ -75,7 +77,7 @@ def pdf_to_pptx(src: Path) -> Path:
     doc = open_pdf(src)
     prs = Presentation()
     prs.slide_width, prs.slide_height = int(doc[0].rect.width * 12700), int(doc[0].rect.height * 12700)
-    for page in doc:
+    for page in steps(doc, lambda pg: f"Trang {pg.number + 1}/{len(doc)}"):
         png = page.get_pixmap(dpi=150, alpha=False).tobytes("png")
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         slide.shapes.add_picture(io.BytesIO(png), 0, 0, prs.slide_width, prs.slide_height)
@@ -118,7 +120,7 @@ def image_convert(src: Path, to: str) -> Path:
 
 def images_to_pdf(files, out: Path) -> Path:
     doc = pymupdf.open()
-    for f in files:
+    for f in steps(files):
         im = ImageOps.exif_transpose(Image.open(f)).convert("RGB")
         buf = io.BytesIO()
         im.save(buf, "JPEG", quality=92)
@@ -135,6 +137,7 @@ def convert_one(src: Path, kind: str, to: str) -> Path:
                 "txt": pdf_to_txt}.get(to, lambda s: render_pdf(s, to, s))(src)
     if kind == "img":
         return images_to_pdf([src], out_path(src, new_ext="pdf")) if to == "pdf" else image_convert(src, to)
+    report(None, f"{src.name}: đang đọc bằng Office…")
     with tmpdir() as td:
         if to in ("png", "jpg"):
             return render_pdf(soffice_convert(src, "pdf", td), to, src)
@@ -149,7 +152,7 @@ def convert_one(src: Path, kind: str, to: str) -> Path:
 
 def _register(kind: str, to: str):
     def run(files, params):
-        return [convert_one(f, kind, to) for f in sorted(files, key=natural_key) if ext(f) != to]
+        return [convert_one(f, kind, to) for f in steps(sorted(files, key=natural_key)) if ext(f) != to]
 
     REGISTRY.append(Action(
         f"convert.{kind}.{to}", "convert", to.upper(), f"{KIND_NAME[kind]} → {to.upper()}", run,
@@ -176,10 +179,10 @@ def pdf_ocr(files, p):
     import pymupdf
 
     lang, outs = _tess_langs(), []
-    for f in files:
+    for f in steps(files):
         src = open_pdf(f)
         doc = pymupdf.open()
-        for page in src:
+        for page in steps(src, lambda pg: f"Trang {pg.number + 1}/{len(src)}"):
             pix = page.get_pixmap(dpi=200)
             doc.insert_pdf(pymupdf.open("pdf", pix.pdfocr_tobytes(language=lang)))
         src.close()

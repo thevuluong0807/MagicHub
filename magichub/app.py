@@ -5,17 +5,21 @@ import json
 import logging
 import os
 import sys
+import threading
 import time
 import traceback
 from pathlib import Path
 
 from PySide6.QtCore import QLockFile, QObject, QRunnable, QThreadPool, QTimer, QUrl, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QActionGroup, QColor, QDesktopServices, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QFileDialog, QMenu, QSystemTrayIcon
 
-from . import config
+from . import config, theme
 from .actions import available
+from .actions.base import Cancelled, bind
+from .actions.office import ENGINES
 from .hotkey import Hotkey
+from .toast import Toast
 from .wheel import Wheel
 
 log = logging.getLogger("magichub")
@@ -41,16 +45,30 @@ def _size(n: int) -> str:
 class _Sig(QObject):
     done = Signal(object, list, list)  # action, inputs, outputs
     fail = Signal(str)
+    progress = Signal(float, str)  # 0..1 hoặc -1 (chưa biết), dòng chi tiết
+    cancelled = Signal()
 
 
 class Job(QRunnable):
     def __init__(self, act, files, params):
         super().__init__()
         self.act, self.files, self.params, self.sig = act, files, params, _Sig()
+        self.stop, self.started, self.finished = threading.Event(), False, False
+        self._last = (0.0, "")
+
+    def _report(self, frac, text):  # gọi từ luồng worker; giới hạn ~25 lần/giây để không ngập hàng đợi sự kiện
+        now = time.monotonic()
+        if text != self._last[1] or now - self._last[0] >= 0.04:
+            self._last = (now, text)
+            self.sig.progress.emit(-1.0 if frac is None else frac, text)
 
     def run(self):
+        self.started = True
+        bind(self._report, self.stop.is_set)
         try:
             self.sig.done.emit(self.act, self.files, self.act.run(self.files, self.params))
+        except Cancelled:
+            self.sig.cancelled.emit()
         except Exception as e:  # lỗi file người dùng phải hiện, không được nuốt
             log.error(traceback.format_exc())
             self.sig.fail.emit(str(e) or e.__class__.__name__)
@@ -75,6 +93,8 @@ class Hub(QObject):
         self.wheel = Wheel()
         self.wheel.chosen.connect(self.on_chosen)
         self.files, self.held, self.saved_text = [], False, ""
+        self.toast = Toast()
+        self.toast_job = None
         self.tray = QSystemTrayIcon(_icon())
         self.tray.messageClicked.connect(self.open_last)
         menu = QMenu()
@@ -90,6 +110,14 @@ class Hub(QObject):
         menu.addAction("Thư mục kết quả…", self.change_output)
         menu.addAction("Lưu cạnh file gốc", lambda: self.set_output(None))
         self._show_out()
+        eng = menu.addMenu("Engine Office")  # engine chuyển Word/Excel/PowerPoint
+        grp = QActionGroup(eng)
+        for key, label in ENGINES.items():
+            a = eng.addAction(label)
+            a.setCheckable(True)
+            a.setChecked(self.cfg.get("engine", "auto") == key)
+            a.triggered.connect(lambda _=False, k=key: self.set_engine(k))
+            grp.addAction(a)
         menu.addAction("Mở thư mục cấu hình", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(config.config_dir()))))
         menu.addAction("Thoát", app.quit)
         self._menu = menu
@@ -97,6 +125,11 @@ class Hub(QObject):
         self.tray.show()
         if hotkey_enabled:
             self.start_hotkeys()
+
+    def set_engine(self, key):
+        self.cfg["engine"] = key
+        config.save(self.cfg)
+        self.notify("MagicHub", f"Engine Office: {ENGINES[key]}")
 
     def _show_out(self):
         d = self.cfg.get("output_dir")
@@ -195,34 +228,85 @@ class Hub(QObject):
                 return self.notify("MagicHub", f"Không mở được hộp thoại: {e}", error=True)
             if params is None:
                 return
-        self.notify("MagicHub", f"Đang xử lý: {act.tip}…")
         job = Job(act, self.files, params)
         self.jobs.add(job)
         job.sig.done.connect(self.on_done)
         job.sig.fail.connect(lambda m, j=job: self.on_fail(m, j))
+        job.sig.progress.connect(lambda f, t, j=job: self.on_progress(j, f, t))
+        job.sig.cancelled.connect(lambda j=job: self.on_cancelled(j))
         self.pool.start(job)
+        QTimer.singleShot(600, lambda: self._show_progress(job))  # việc nhanh không nháy thẻ tiến trình
+
+    # ---- thẻ tiến trình ----
+    def _title(self, job):
+        n = len(job.files)
+        return f"{job.act.label} · {job.files[0].name}" + (f" (+{n - 1})" if n > 1 else "")
+
+    def _show_progress(self, job):
+        if job.finished or self.toast.state == "running":
+            return
+        self.toast_job = job
+        self.toast.running(self._title(job), "Đang chờ…" if not job.started else "Đang xử lý…", lambda: self.cancel_job(job))
+
+    def on_progress(self, job, frac, text):
+        if self.toast_job is job:
+            self.toast.progress(frac, text)
+
+    def cancel_job(self, job):
+        job.stop.set()
+        if self.pool.tryTake(job):  # chưa bắt đầu chạy: gỡ khỏi hàng đợi
+            self.on_cancelled(job)
+
+    def on_cancelled(self, job):
+        job.finished = True
+        self.jobs.discard(job)
+        if self.toast_job is job:
+            self.toast.finish(False, "Đã huỷ", self._title(job))
+            self.toast_job = None
+        self._log(job.act, job.files, [], "cancelled")
+        if getattr(self, "quit_after", False):
+            QTimer.singleShot(8000, self.app.quit)
+
+    def _result(self, job, ok, title, detail, actions=()):
+        """Thẻ kết quả khi không có việc khác đang chạy trên thẻ; ngược lại dùng bong bóng khay."""
+        if self.toast_job is job or self.toast.state != "running":
+            self.toast.finish(ok, title, detail, actions)
+            self.toast_job = None
+        else:
+            self.notify(title, detail, error=not ok)
+
+    def _log(self, act, files, outs, status, **extra):
+        with (config.config_dir() / "history.jsonl").open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": int(time.time()), "action": act.id, "inputs": [str(x) for x in files],
+                                "outputs": [str(x) for x in outs], "status": status, **extra}, ensure_ascii=False) + "\n")
+
+    def _job_of(self, act, files):
+        return next((j for j in self.jobs if j.act is act and j.files is files), None)
 
     def on_done(self, act, files, outs):
-        self.jobs = {j for j in self.jobs if j.act is not act or j.files is not files}
+        job = self._job_of(act, files)
+        if job:
+            job.finished = True
+            self.jobs.discard(job)
         self.last_out = outs[0] if outs else None
         msg = ", ".join(o.name for o in outs[:3]) + (f" (+{len(outs) - 3})" if len(outs) > 3 else "")
         if len(files) == len(outs) == 1 and files[0].is_file() and outs[0].is_file():
-            msg += f"  [{_size(files[0].stat().st_size)} → {_size(outs[0].stat().st_size)}]"
-        self.notify("Xong ✔ (bấm để mở thư mục)", msg)
-        with (config.config_dir() / "history.jsonl").open("a", encoding="utf-8") as f:
-            f.write(json.dumps({"ts": int(time.time()), "action": act.id, "inputs": [str(x) for x in files],
-                                "outputs": [str(x) for x in outs], "status": "ok"}, ensure_ascii=False) + "\n")
+            msg += f"  ·  {_size(files[0].stat().st_size)} → {_size(outs[0].stat().st_size)}"
+        buttons = [("Mở thư mục", self.open_last)]
+        if len(outs) == 1 and outs[0].is_file():
+            buttons.append(("Mở file", lambda o=outs[0]: QDesktopServices.openUrl(QUrl.fromLocalFile(str(o)))))
+        self._result(job, True, f"Xong · {act.label}", msg, buttons)
+        self._log(act, files, outs, "ok")
         if getattr(self, "quit_after", False):
-            QTimer.singleShot(3000, self.app.quit)
+            QTimer.singleShot(8000, self.app.quit)
 
     def on_fail(self, msg, job):
+        job.finished = True
         self.jobs.discard(job)
-        self.notify("Lỗi", msg, error=True)
-        with (config.config_dir() / "history.jsonl").open("a", encoding="utf-8") as f:
-            f.write(json.dumps({"ts": int(time.time()), "action": job.act.id, "inputs": [str(x) for x in job.files],
-                                "outputs": [], "status": "error", "error": msg}, ensure_ascii=False) + "\n")
+        self._result(job, False, f"Lỗi · {job.act.label}", msg)
+        self._log(job.act, job.files, [], "error", error=msg)
         if getattr(self, "quit_after", False):
-            QTimer.singleShot(3000, self.app.quit)
+            QTimer.singleShot(8000, self.app.quit)
 
     def notify(self, title, text, error=False):
         print(f"[{title}] {text}", flush=True)
@@ -246,6 +330,7 @@ def main(files: list[Path] | None = None) -> int:
         os.environ.setdefault("QT_QPA_PLATFORM", "xcb")  # XWayland: đặt được cửa sổ overlay không viền, luôn trên cùng
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
+    theme.apply(app)
     if files is None:
         lock = QLockFile(str(config.cache_dir() / "daemon.lock"))
         if not lock.tryLock(100):

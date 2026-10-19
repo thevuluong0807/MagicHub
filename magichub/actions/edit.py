@@ -8,7 +8,7 @@ from pathlib import Path
 import pymupdf
 from PIL import Image, ImageOps
 
-from .base import action, find_font, kind_of, open_pdf, out_path, save_pdf, tmpdir
+from .base import action, find_font, kind_of, open_pdf, out_path, save_pdf, steps, tmpdir
 from .convert import images_to_pdf
 
 PDF, PI = ("pdf",), ("pdf", "img")
@@ -33,7 +33,7 @@ def _words(s: str) -> list[str]:
         ask=_form("Đặt mật khẩu", [{"name": "password", "label": "Mật khẩu", "type": "password", "required": True}]))
 def protect(files, p):
     outs = []
-    for f in files:
+    for f in steps(files):
         doc = open_pdf(f)
         outs.append(save_pdf(doc, out_path(f, "protected"), encryption=pymupdf.PDF_ENCRYPT_AES_256,
                              user_pw=p["password"], owner_pw=p["password"]))
@@ -52,10 +52,10 @@ def _ask_redact(files):
 def redact(files, p):
     """params: keywords (tuỳ chọn, mọi file) + rects (tuỳ chọn, chỉ file đầu): [{page,x0,y0,x1,y1}] toạ độ 0..1 theo trang."""
     kws, outs = _words(p.get("keywords", "")), []
-    for n, f in enumerate(files):
+    for n, f in steps(enumerate(files), lambda t: t[1].name):
         doc, total = open_pdf(f), 0
         rects = p.get("rects", []) if n == 0 else []
-        for i, page in enumerate(doc):
+        for i, page in steps(enumerate(doc), lambda t: f"{f.name}: trang {t[0] + 1}/{len(doc)}"):
             W, H = page.rect.width, page.rect.height
             hits = [r for k in kws for r in page.search_for(k)]
             hits += [pymupdf.Rect(m["x0"] * W, m["y0"] * H, m["x1"] * W, m["y1"] * H) for m in rects if m["page"] == i]
@@ -165,7 +165,7 @@ def markup(files, p):
     if not marks:
         raise ValueError("Chưa thêm gì để vẽ")
     outs = []
-    for f in files:
+    for f in steps(files):
         if kind_of(f) == "pdf":
             doc = open_pdf(f)
             apply_marks(doc, marks)
@@ -190,9 +190,9 @@ def markup(files, p):
             {"name": "color", "label": "Màu", "type": "choice", "choices": list(HL)}]))
 def highlight(files, p):
     kws, outs = _words(p["keywords"]), []
-    for f in files:
+    for f in steps(files):
         doc, total = open_pdf(f), 0
-        for page in doc:
+        for page in steps(doc, lambda pg: f"{f.name}: trang {pg.number + 1}/{len(doc)}"):
             for k in kws:
                 quads = page.search_for(k, quads=True)
                 if quads:
@@ -234,7 +234,7 @@ def _ask_crop(files):
 def crop(files, p):
     x0, y0, x1, y1 = p["box"]  # tỉ lệ 0..1
     outs = []
-    for f in files:
+    for f in steps(files):
         out = out_path(f, "cropped")
         if kind_of(f) == "pdf":
             doc = open_pdf(f)

@@ -9,7 +9,7 @@
 ## Chất lượng chuyển đổi (ước lượng)
 | Từ → Sang | Chất lượng | Ghi chú |
 |---|---|---|
-| Word/Excel/PPT → PDF | Tốt | LibreOffice; font lạ có thể bị thay |
+| Word/Excel/PPT → PDF | Tốt | Windows/macOS: Microsoft Office nếu có (chưa thử thật), còn lại LibreOffice; font lạ có thể bị thay |
 | Mọi thứ → PNG/JPG (qua PDF) | Tốt | 150 dpi; nhiều trang → thư mục `page_001…` |
 | Ảnh ↔ ảnh, ảnh → PDF | Tốt | JPG/BMP mất kênh trong suốt (nền trắng); không hỗ trợ HEIC |
 | PDF → TXT | Tốt với PDF có text | PDF scan ra rỗng → dùng Convert → OCR trước |

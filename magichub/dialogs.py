@@ -5,16 +5,45 @@ from pathlib import Path
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QHBoxLayout,
+from PySide6.QtWidgets import (QComboBox, QDialog, QFrame, QDialogButtonBox, QFileDialog, QFormLayout, QHBoxLayout,
                                QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox,
                                QVBoxLayout, QWidget)
 
 
 def _front(dlg):
+    for b in dlg.findChildren(QPushButton):  # chỉ nút OK của QDialogButtonBox là nút chính; nút khác không được tô màu nhấn
+        if not isinstance(b.parent(), QDialogButtonBox):
+            b.setAutoDefault(False)
+            b.setDefault(False)
     dlg.setWindowFlag(Qt.WindowStaysOnTopHint)
     dlg.show()
     dlg.raise_()
     dlg.activateWindow()
+
+
+def header(lay, title: str, hint: str = ""):
+    """Đầu hộp thoại: tiêu đề lớn + mô tả mờ (cùng kiểu Outlook/Settings của Windows)."""
+    h = QLabel(title)
+    h.setObjectName("h1")
+    lay.addRow(h) if isinstance(lay, QFormLayout) else lay.addWidget(h)
+    if hint:
+        m = QLabel(hint)
+        m.setObjectName("muted")
+        m.setWordWrap(True)
+        m.setMinimumWidth(1)
+        lay.addRow(m) if isinstance(lay, QFormLayout) else lay.addWidget(m)
+
+
+def buttons(dlg, ok: str = "OK", wire: bool = True) -> QDialogButtonBox:
+    """Nút chính (màu nhấn) + Huỷ, đã nối accept/reject; ok nên là động từ của tác vụ (Cắt, Áp dụng, Lưu…)."""
+    bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    bb.button(QDialogButtonBox.Ok).setText(ok)
+    bb.button(QDialogButtonBox.Ok).setDefault(True)
+    bb.button(QDialogButtonBox.Cancel).setText("Huỷ")
+    if wire:
+        bb.accepted.connect(dlg.accept)
+    bb.rejected.connect(dlg.reject)
+    return bb
 
 
 class _FilePick(QWidget):
@@ -31,12 +60,16 @@ class _FilePick(QWidget):
         lay.addWidget(btn)
 
 
-def ask_form(title: str, fields: list[dict]) -> dict | None:
+def ask_form(title: str, fields: list[dict], hint: str = "", ok: str = "OK") -> dict | None:
     """fields: name,label,type(text|password|multiline|choice|int|file),default,choices,min,max,required."""
     dlg = QDialog()
     dlg.setWindowTitle(title)
-    dlg.setMinimumWidth(380)
+    dlg.setMinimumWidth(400)
     form = QFormLayout(dlg)
+    form.setRowWrapPolicy(QFormLayout.WrapAllRows)  # nhãn trên ô nhập, như form hiện đại
+    form.setContentsMargins(24, 20, 24, 20)
+    form.setVerticalSpacing(8)
+    header(form, title, hint)
     ws, confirm = {}, {}
     for f in fields:
         t = f.get("type", "text")
@@ -62,7 +95,7 @@ def ask_form(title: str, fields: list[dict]) -> dict | None:
         form.addRow(f["label"], w)
         if f["name"] in confirm:
             form.addRow("Nhập lại", confirm[f["name"]])
-    bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    bb = buttons(dlg, ok, wire=False)  # accept() bên dưới kiểm tra dữ liệu rồi mới đóng
     form.addRow(bb)
 
     def value(t, w):
@@ -79,7 +112,6 @@ def ask_form(title: str, fields: list[dict]) -> dict | None:
         dlg.accept()
 
     bb.accepted.connect(accept)
-    bb.rejected.connect(dlg.reject)
     _front(dlg)
     if dlg.exec() != QDialog.Accepted:
         return None
@@ -204,19 +236,21 @@ class _CropLabel(QLabel):
         for q in (QRectF(0, 0, W, r.top()), QRectF(0, r.bottom(), W, H - r.bottom()),
                   QRectF(0, r.top(), r.left(), r.height()), QRectF(r.right(), r.top(), W - r.right(), r.height())):
             p.fillRect(q, dim)
-        p.setPen(QPen(QColor("#ff9f1c"), 2))
+        p.setPen(QPen(QColor(0, 0, 0, 90), 3))  # viền trắng có bóng mờ để nổi trên mọi nền
         p.setBrush(Qt.NoBrush)
+        p.drawRect(r.adjusted(0.5, 0.5, 0.5, 0.5))
+        p.setPen(QPen(QColor("white"), 1.5))
         p.drawRect(r)
-        p.setPen(QPen(QColor(255, 255, 255, 110), 1))  # lưới 1/3
+        p.setPen(QPen(QColor(255, 255, 255, 90), 1))  # lưới 1/3
         for k in (1, 2):
             p.drawLine(QPointF(r.left() + r.width() * k / 3, r.top()), QPointF(r.left() + r.width() * k / 3, r.bottom()))
             p.drawLine(QPointF(r.left(), r.top() + r.height() * k / 3), QPointF(r.right(), r.top() + r.height() * k / 3))
-        p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#ff9f1c"))
+        p.setPen(QPen(QColor(0, 0, 0, 160), 1))  # tay nắm: ô vuông trắng viền tối như Snipping Tool
+        p.setBrush(QColor("white"))
         for x in (r.left(), r.center().x(), r.right()):
             for y in (r.top(), r.center().y(), r.bottom()):
                 if (x, y) != (r.center().x(), r.center().y()):
-                    p.drawRect(QRectF(x - 3, y - 3, 6, 6))
+                    p.drawRect(QRectF(x - 4, y - 4, 8, 8))
 
 
 def _preview(path: Path) -> QImage:
@@ -240,9 +274,10 @@ def ask_crop(files) -> dict | None:
     if pix.width() > 900 or pix.height() > 640:  # chỉ thu nhỏ, không phóng to
         pix = pix.scaled(900, 640, Qt.KeepAspectRatio, Qt.SmoothTransformation)
     dlg = QDialog()
-    dlg.setWindowTitle("Crop — kéo cạnh/góc khung để chọn vùng giữ lại")
+    dlg.setWindowTitle("Crop")
     lab = _CropLabel(pix)
     info = QLabel()
+    info.setObjectName("muted")
     ratio = QComboBox()
     ratio.addItems(list(RATIOS))
     ratio.currentTextChanged.connect(lambda t: lab.set_ratio(RATIOS[t]))
@@ -250,33 +285,41 @@ def ask_crop(files) -> dict | None:
     def show():
         r = lab.rect_sel()
         info.setText(f"{round(r.width() / pix.width() * img.width())} × {round(r.height() / pix.height() * img.height())} px"
-                     if r else "Kéo chuột trên ảnh để chọn vùng")
+                     if r else "Kéo cạnh hoặc góc khung để chọn vùng")
 
     lab.changed = show
     show()
-    bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
     lay = QVBoxLayout(dlg)
-    lay.addWidget(lab, 0, Qt.AlignCenter)
-    row = QHBoxLayout()
-    row.addWidget(QLabel("Tỉ lệ"))
-    row.addWidget(ratio)
-    row.addWidget(info, 1)
-    lay.addLayout(row)
-    hint = QLabel("Kéo cạnh/góc để thu nhỏ khung, kéo trong khung để di chuyển, kéo ngoài khung để vẽ lại. Áp dụng cùng tỉ lệ cho mọi trang/file đã chọn.")
+    lay.setContentsMargins(16, 14, 16, 14)
+    lay.setSpacing(10)
+    lay.setSizeConstraint(QVBoxLayout.SetFixedSize)
+    bar = QHBoxLayout()  # thanh công cụ trên cùng: tỉ lệ + kích thước, giống Snipping Tool
+    bar.addWidget(QLabel("Tỉ lệ"))
+    bar.addWidget(ratio)
+    bar.addStretch()
+    bar.addWidget(info)
+    lay.addLayout(bar)
+    stage = QFrame()  # nền tối trung tính quanh ảnh
+    stage.setStyleSheet("QFrame { background: #262626; border-radius: 8px; }")
+    sl = QVBoxLayout(stage)
+    sl.setContentsMargins(10, 10, 10, 10)
+    sl.addWidget(lab, 0, Qt.AlignCenter)
+    lay.addWidget(stage)
+    hint = QLabel("Kéo trong khung để di chuyển · kéo ngoài khung để vẽ lại · áp dụng cùng tỉ lệ cho mọi trang/file đã chọn")
+    hint.setObjectName("muted")
     hint.setWordWrap(True)  # không để câu dài kéo giãn hộp thoại rộng hơn ảnh
     hint.setMinimumWidth(1)
     lay.addWidget(hint)
-    lay.setSizeConstraint(QVBoxLayout.SetFixedSize)
+    bb = buttons(dlg, "Cắt", wire=False)
     lay.addWidget(bb)
 
     def accept():
         if lab.rect_sel():
             dlg.accept()
         else:
-            QMessageBox.warning(dlg, "Crop", "Hãy kéo chuột chọn vùng trước")
+            QMessageBox.warning(dlg, "Crop", "Khung quá nhỏ")
 
     bb.accepted.connect(accept)
-    bb.rejected.connect(dlg.reject)
     _front(dlg)
     if dlg.exec() != QDialog.Accepted:
         return None
@@ -332,20 +375,21 @@ def ask_hotkey(mods: list[str], key: str) -> tuple[list[str], str] | None:
 
     dlg = Dlg()
     dlg.setWindowTitle("Đổi phím tắt")
-    dlg.setMinimumWidth(340)
+    dlg.setMinimumWidth(420)
     lay = QVBoxLayout(dlg)
-    lay.addWidget(QLabel("Bấm tổ hợp mới (Esc để huỷ). Chỉ giữ 2+ phím Ctrl/Alt/Shift rồi nhả cũng được,\nvà tránh phím chữ: file manager sẽ gõ chữ đó vào ô tìm kiếm:"))
+    lay.setContentsMargins(24, 20, 24, 20)
+    lay.setSpacing(12)
+    header(lay, "Đổi phím tắt", "Bấm tổ hợp mới (Esc để huỷ). Chỉ giữ 2+ phím Ctrl/Alt/Shift rồi nhả cũng được; "
+           "tránh phím chữ vì file manager sẽ gõ chữ đó vào ô tìm kiếm.")
     lab = QLabel("+".join(mods + ([key] if key else [])))
     lab.setAlignment(Qt.AlignCenter)
-    lab.setStyleSheet("font-size:20px;font-weight:bold;padding:12px")
+    lab.setStyleSheet("font-size:22px;font-weight:600;padding:18px;border:1px solid palette(mid);border-radius:8px;background:palette(base)")
     lay.addWidget(lab)
-    bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    bb = buttons(dlg, "Lưu")
     ok = bb.button(QDialogButtonBox.Ok)
     ok.setEnabled(False)
     ok.setFocusPolicy(Qt.NoFocus)
     bb.button(QDialogButtonBox.Cancel).setFocusPolicy(Qt.NoFocus)
-    bb.accepted.connect(dlg.accept)
-    bb.rejected.connect(dlg.reject)
     lay.addWidget(bb)
     _front(dlg)
     return pending["v"] if dlg.exec() == QDialog.Accepted and "v" in pending else None

@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QComboBox, QDialog, QDialogBut
 
 from .actions import ordered
 from .actions.base import GROUPS, REGISTRY
-from .dialogs import _front, ask_hotkey
+from .dialogs import _front, ask_hotkey, buttons, header
 
 GROUP_NAME = {"": "Tất cả nhóm", **{gid: label for gid, label in GROUPS}}
 
@@ -22,13 +22,15 @@ def ask_hotkeys(hotkeys: list[dict]) -> list[dict] | None:
     items = [dict(h) for h in hotkeys]
     dlg = QDialog()
     dlg.setWindowTitle("Phím tắt")
-    dlg.setMinimumWidth(420)
+    dlg.setMinimumWidth(460)
     lay = QVBoxLayout(dlg)
-    lay.addWidget(QLabel("Mỗi phím tắt mở cả vòng, hoặc vào thẳng một nhóm (Convert / Edit / Organize)."))
+    lay.setContentsMargins(24, 20, 24, 20)
+    lay.setSpacing(10)
+    header(lay, "Phím tắt", "Mỗi phím tắt mở cả vòng, hoặc vào thẳng một nhóm (Convert / Edit / Organize).")
     lst = QListWidget()
     lay.addWidget(lst)
     err = QLabel()
-    err.setStyleSheet("color:#c33")
+    err.setObjectName("err")
     lay.addWidget(err)
 
     def refresh():
@@ -44,10 +46,14 @@ def ask_hotkeys(hotkeys: list[dict]) -> list[dict] | None:
         pick.addItems(list(GROUP_NAME.values()))
         d2 = QDialog()
         d2.setWindowTitle("Phím tắt mở nhóm nào?")
+        d2.setMinimumWidth(340)
         v = QVBoxLayout(d2)
+        v.setContentsMargins(24, 20, 24, 20)
+        v.setSpacing(12)
+        header(v, "Mở nhóm nào?", "Chọn nhóm vào thẳng khi bấm phím này, hoặc “Tất cả nhóm” để mở cả vòng.")
         v.addWidget(pick)
-        bb2 = QDialogButtonBox(QDialogButtonBox.Ok)
-        bb2.accepted.connect(d2.accept)
+        bb2 = buttons(d2, "Chọn")
+        bb2.button(QDialogButtonBox.Cancel).hide()
         v.addWidget(bb2)
         _front(d2)  # dlg cha luôn-trên-cùng: popup con phải cùng cờ, nếu không bị che
         d2.exec()
@@ -77,10 +83,7 @@ def ask_hotkeys(hotkeys: list[dict]) -> list[dict] | None:
         row.addWidget(b)
     row.addStretch()
     lay.addLayout(row)
-    bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-    bb.accepted.connect(dlg.accept)
-    bb.rejected.connect(dlg.reject)
-    lay.addWidget(bb)
+    lay.addWidget(buttons(dlg, "Lưu"))
     refresh()
     _front(dlg)
     return items if dlg.exec() == QDialog.Accepted else None
@@ -91,9 +94,11 @@ def ask_menu(menu: dict) -> dict | None:
     hidden, order = set(menu.get("hidden", [])), menu.get("order", [])
     dlg = QDialog()
     dlg.setWindowTitle("Tuỳ chỉnh menu")
-    dlg.resize(460, 480)
+    dlg.resize(500, 520)
     lay = QVBoxLayout(dlg)
-    lay.addWidget(QLabel("Bỏ tích để ẩn tác vụ khỏi vòng tròn. Kéo thả để đổi thứ tự (thứ tự trên vòng: từ 12h theo chiều kim đồng hồ)."))
+    lay.setContentsMargins(24, 20, 24, 20)
+    lay.setSpacing(10)
+    header(lay, "Tuỳ chỉnh menu", "Bỏ tích để ẩn tác vụ khỏi vòng tròn. Kéo thả để đổi thứ tự (trên vòng: từ 12h theo chiều kim đồng hồ).")
     tabs, lists = QTabWidget(), {}
     for gid, label in GROUPS:
         lst = QListWidget()
@@ -121,10 +126,7 @@ def ask_menu(menu: dict) -> dict | None:
 
     reset.clicked.connect(do_reset)
     lay.addWidget(reset)
-    bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-    bb.accepted.connect(dlg.accept)
-    bb.rejected.connect(dlg.reject)
-    lay.addWidget(bb)
+    lay.addWidget(buttons(dlg, "Lưu"))
     _front(dlg)
     if dlg.exec() != QDialog.Accepted:
         return None

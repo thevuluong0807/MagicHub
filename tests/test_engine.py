@@ -403,9 +403,102 @@ def test_cropwidget():
     assert r.right() <= 400 and r.bottom() <= 300 and abs(r.width() - r.height()) < 1e-6 and r.height() == 290
 
 
+def test_progress_engine(td):
+    from magichub.actions import base, office
+    from magichub.actions.base import Cancelled, bind, report, scope, steps
+    pdf = make_pdf(td / "p.pdf", pages=5)
+    got = []
+    bind(lambda f, t: got.append(f), None)
+    run("organize.split", [pdf], ranges="")
+    fr = [f for f in got if f is not None]
+    assert fr == sorted(fr) and fr[-1] == 1.0 and len(fr) >= 6, fr
+    got.clear()
+    for i in steps(range(2)):  # phạm vi lồng nhau: 2 file x 2 trang -> 0, .25, .5, .75, 1
+        for j in steps(range(2)):
+            pass
+    fr = [round(f, 2) for f in got if f is not None]
+    assert fr == sorted(fr) and 0.25 in fr and 0.75 in fr and fr[-1] == 1.0, fr
+    n = []
+    bind(lambda f, t: n.append(1), lambda: len(n) >= 2)  # huỷ sau 2 lần báo
+    try:
+        run("organize.split", [pdf], ranges="")
+        raise AssertionError("phải bị huỷ")
+    except Cancelled:
+        pass
+    bind(None, None)
+    # chọn engine: Linux không có Office -> auto dùng LibreOffice; ép office -> báo lỗi rõ
+    from magichub import config
+    calls = []
+    orig = office.soffice_convert, office.available, office._office_run
+    office.soffice_convert = lambda s, f, o: calls.append(("lo", f)) or Path(o) / "x"
+    try:
+        assert office.office_convert(td / "a.docx", "pdf", td) == td / "x" and calls == [("lo", "pdf")]
+        office.available = lambda k: True
+        office._office_run = lambda s, f, o: (_ for _ in ()).throw(RuntimeError("COM hỏng"))
+        sys_plat = office.sys.platform
+        office.sys.platform = "win32"  # giả lập: Office có nhưng lỗi -> auto rơi về LibreOffice
+        calls.clear()
+        office.office_convert(td / "a.docx", "pdf", td)
+        assert calls == [("lo", "pdf")]
+        cfg = config.load(); cfg["engine"] = "office"; config.save(cfg)
+        try:
+            office.office_convert(td / "a.docx", "pdf", td)
+            raise AssertionError
+        except RuntimeError as e:
+            assert "COM" in str(e)
+        cfg["engine"] = "libreoffice"; config.save(cfg)
+        calls.clear()
+        office.office_convert(td / "a.docx", "pdf", td)
+        assert calls == [("lo", "pdf")]
+        assert not office.use_office("img", "pdf") and not office.use_office("doc", "docx")
+    finally:
+        office.sys.platform = sys_plat
+        office.soffice_convert, office.available, office._office_run = orig
+        cfg = config.load(); cfg["engine"] = "auto"; config.save(cfg)
+
+
+def test_hub_toast(td):
+    import time as _t
+    from PySide6.QtWidgets import QApplication
+    from magichub import theme
+    from magichub.actions.base import REGISTRY, Action, steps
+    from magichub.app import Hub
+
+    app = QApplication.instance() or QApplication([])
+    theme.apply(app)
+    hub = Hub(app, hotkey_enabled=False)
+
+    def pump(cond, sec=5):
+        end = _t.time() + sec
+        while not cond() and _t.time() < end:
+            app.processEvents()
+        assert cond()
+
+    def slow(files, p):
+        for _ in steps(range(200)):
+            _t.sleep(0.02)
+        return [files[0]]
+
+    act = Action("t.slow", "edit", "Slow", "chậm", slow)
+    f = make_pdf(td / "s.pdf", 1)
+    hub.files = [f]
+    hub.on_chosen(act)
+    pump(lambda: hub.toast.state == "running")  # sau 600 ms thẻ tiến trình hiện
+    pump(lambda: hub.toast.frac is not None and hub.toast.frac > 0.1)
+    assert "Slow" in hub.toast.title.text() and hub.toast.isVisible()
+    hub.cancel_job(next(iter(hub.jobs)))
+    pump(lambda: hub.toast.state == "error" and "huỷ" in hub.toast.title.text())
+    assert not hub.jobs
+    done = Action("t.fast", "edit", "Fast", "nhanh", lambda files, p: files)
+    hub.on_chosen(done)
+    pump(lambda: hub.toast.state == "done" and "Fast" in hub.toast.title.text())
+    hub.toast.dismiss()
+    hub.tray.hide()
+
+
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_progress_engine, test_hub_toast):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)

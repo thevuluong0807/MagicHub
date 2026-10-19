@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.7.0** (chưa tag). CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.8.0**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -20,6 +20,13 @@
 
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
+
+## 2026-10-19 — v0.8.0
+- **Engine Office** (`actions/office.py`): Windows/macOS mặc định dùng Microsoft Office nếu có (Windows: PowerShell COM, không thêm dependency; macOS: osascript, ghi qua Group Container của Office), lỗi thì rơi về LibreOffice. `config.engine` = `auto|office|libreoffice` (+ menu khay "Engine Office"). Ép `office` mà chưa cài → báo lỗi rõ. Mac chỉ PDF; Windows làm cả pdf/txt(Word)/csv(Excel)/pptx. **Chưa thử trên Windows/macOS thật** (máy dev Linux); logic chọn engine có test giả lập.
+- **Tiến trình + huỷ** (`base.py`: `bind/report/steps/scope/run_proc/Cancelled`, thread-local theo Job): mọi vòng lặp file/trang chính dùng `steps()`, vòng lồng tự chia khoảng; LibreOffice/Office chạy qua `run_proc` nên huỷ được (giết cả nhóm tiến trình). Chuyển PDF→Word chưa có % (pdf2docx không có callback) → thanh chạy vô định.
+- **Thẻ tiến trình** (`toast.py`): góc dưới-phải, hiện sau 600 ms nếu việc chưa xong; % + đã chạy + ước tính còn lại, nút Huỷ; khi xong/lỗi đổi thành thẻ kết quả (Mở thư mục / Mở file), tự ẩn sau 9 s (rê chuột = giữ). Thay bong bóng khay cho done/fail; khay chỉ còn dùng khi thẻ đang bận việc khác.
+- **Giao diện** (`theme.py`): Fusion + QSS kiểu Fluent (font hệ thống, góc bo 6–10 px, nút chính màu nhấn, sáng/tối theo hệ điều hành). Hộp thoại có tiêu đề + mô tả, nhãn trên ô nhập, nút chính là động từ (Cắt, Lưu, Áp dụng, Xoá vĩnh viễn) và "Huỷ". Crop: thanh công cụ trên, nền tối quanh ảnh, tay nắm vuông trắng kiểu Snipping Tool. `dialogs.header/buttons`; `_front` bỏ autoDefault cho nút ngoài QDialogButtonBox (tránh nút phụ bị tô màu chính).
+- Tests: `test_progress_engine`, `test_hub_toast`. Bẫy: widget thêm vào layout của cha đã hiện phải `show()` thủ công.
 
 ## 2026-10-19 — v0.7.0
 - Sửa gốc lỗi Crop không mở: `dialogs.py` import `..actions` (sai) thay `.actions`; lỗi `ask` giờ báo lên khay. Crop mở với khung full mặc định; hộp thoại vừa khít ảnh.

@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog,
 from .actions.base import open_pdf
 from .actions.edit import arrow_head, note_box
 from .dialogs import _front, ask_form
+from .dialogs import buttons as _buttons
 
 INK_COLORS = {"Đỏ": "#e5484d", "Xanh": "#3e63dd", "Đen": "#111111", "Vàng cam": "#f5a524"}
 
@@ -217,7 +218,7 @@ class PageCanvas(QWidget):
             p.drawText(box.adjusted(3, 2, -3, -2), Qt.TextWordWrap, m["text"])
 
 
-def _pager(canvas, extra: list[QWidget], hint: str, title: str) -> QDialog:
+def _pager(canvas, extra: list[QWidget], hint: str, title: str, ok: str = "Áp dụng") -> QDialog:
     dlg = QDialog()
     dlg.setWindowTitle(title)
     lay = QVBoxLayout(dlg)
@@ -239,11 +240,11 @@ def _pager(canvas, extra: list[QWidget], hint: str, title: str) -> QDialog:
     bar.addWidget(undo)
     lay.addLayout(bar)
     lay.addWidget(canvas, 1)
-    lay.addWidget(QLabel(hint))
-    bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-    bb.accepted.connect(dlg.accept)
-    bb.rejected.connect(dlg.reject)
-    lay.addWidget(bb)
+    h = QLabel(hint)
+    h.setObjectName("muted")
+    h.setWordWrap(True)
+    lay.addWidget(h)
+    lay.addWidget(_buttons(dlg, ok))
     show()
     dlg.resize(860, 960)
     return dlg
@@ -349,7 +350,7 @@ def ask_redact(path) -> dict | None:
         n += len(rs)
     info = QLabel(f"Khớp {n} chỗ (khung cam). Kéo chuột để thêm vùng che (áp dụng cho file đầu tiên).")
     dlg = _pager(cv, [], "Xem trước: khung cam = từ khoá sẽ bị xoá; vùng đen = vùng tự chọn. OK để xoá vĩnh viễn.",
-                 "Redact — xem trước")
+                 "Redact — xem trước", ok="Xoá vĩnh viễn")
     dlg.layout().insertWidget(1, info)
     _front(dlg)
     ok = dlg.exec() == QDialog.Accepted
@@ -368,6 +369,8 @@ def ask_reorder(path) -> dict | None:
     doc = open_pdf(path)
     lst = QListWidget()
     lst.setViewMode(QListView.IconMode)
+    lst.setStyleSheet("QListWidget { background: #262626; border: none; border-radius: 8px; } "
+                      "QListWidget::item { color: #ddd; } QListWidget::item:selected { background: #0f6cbd; color: white; }")  # nền tối cho trang trắng nổi
     lst.setIconSize(QSize(110, 150))
     lst.setResizeMode(QListView.Adjust)
     lst.setMovement(QListView.Snap)
@@ -409,11 +412,10 @@ def ask_reorder(path) -> dict | None:
     row.addStretch()
     lay.addLayout(row)
     lay.addWidget(lst, 1)
-    lay.addWidget(QLabel("Kéo thả để đổi chỗ; chọn rồi bấm Xoay/Xoá. Kết quả lưu thành file mới."))
-    bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-    bb.accepted.connect(dlg.accept)
-    bb.rejected.connect(dlg.reject)
-    lay.addWidget(bb)
+    h = QLabel("Kéo thả để đổi chỗ; chọn rồi bấm Xoay/Xoá. Kết quả lưu thành file mới.")
+    h.setObjectName("muted")
+    lay.addWidget(h)
+    lay.addWidget(_buttons(dlg, "Lưu"))
     dlg.resize(720, 640)
     _front(dlg)
     if dlg.exec() != QDialog.Accepted:

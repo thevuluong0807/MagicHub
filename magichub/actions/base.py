@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -76,6 +78,87 @@ def natural_key(p):
     return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", Path(p).name)]
 
 
+# ---------- Tiến trình + huỷ (thread-local: mỗi Job một ngữ cảnh) ----------
+class Cancelled(Exception):
+    pass
+
+
+_ctx = threading.local()
+
+
+def bind(progress=None, cancelled=None):
+    """Job gọi đầu luồng chạy. progress(frac|None, text); cancelled() -> bool. Không bind = no-op (CLI/test)."""
+    _ctx.cb, _ctx.cancel, _ctx.scope = progress, cancelled, []
+
+
+def check_cancel():
+    c = getattr(_ctx, "cancel", None)
+    if c and c():
+        raise Cancelled()
+
+
+def report(frac=None, text=""):
+    """frac 0..1 trong phạm vi scope hiện tại; None = chưa biết (thanh chạy vô định)."""
+    check_cancel()
+    cb = getattr(_ctx, "cb", None)
+    if not cb:
+        return
+    if frac is not None:
+        for lo, hi in reversed(_ctx.scope):  # trong ra ngoài
+            frac = lo + (hi - lo) * frac
+    cb(frac, text)
+
+
+@contextlib.contextmanager
+def scope(lo, hi):
+    stack = getattr(_ctx, "scope", None)
+    if stack is None:
+        yield
+        return
+    stack.append((lo, hi))
+    try:
+        yield
+    finally:
+        stack.pop()
+
+
+def steps(seq, text=None):
+    """for x in steps(items, lambda x: tên): báo tiến trình theo từng phần tử; vòng lặp lồng nhau tự chia khoảng."""
+    seq = list(seq)
+    n = len(seq)
+    for i, x in enumerate(seq):
+        report(i / n, text(x) if text else (x.name if isinstance(x, Path) else ""))
+        with scope(i / n, (i + 1) / n):
+            yield x
+    report(1.0)
+
+
+def run_proc(cmd, timeout=300, **kw) -> subprocess.CompletedProcess:
+    """subprocess.run nhưng huỷ được (Cancelled) và giết cả nhóm tiến trình con."""
+    kw.setdefault("start_new_session", os.name == "posix")
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kw)
+    t0 = time.monotonic()
+    while True:
+        try:
+            out, err = p.communicate(timeout=0.2)
+            return subprocess.CompletedProcess(cmd, p.returncode, out, err)
+        except subprocess.TimeoutExpired:
+            try:
+                check_cancel()
+                if time.monotonic() - t0 > timeout:
+                    raise subprocess.TimeoutExpired(cmd, timeout)
+            except BaseException:
+                if os.name == "posix":
+                    import signal
+
+                    with contextlib.suppress(ProcessLookupError):
+                        os.killpg(p.pid, signal.SIGKILL)
+                else:
+                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True)
+                p.communicate()
+                raise
+
+
 def unique(p) -> Path:
     """Đường dẫn chưa tồn tại; nếu config.output_dir đặt thì mọi kết quả nằm trong thư mục đó."""
     from ..config import load
@@ -130,7 +213,7 @@ def find_soffice() -> str:
     exe = shutil.which("soffice") or shutil.which("libreoffice")
     exe = exe or next((p for p in _SOFFICE_PATHS if os.path.exists(p)), None)
     if not exe:
-        raise RuntimeError("Cần cài LibreOffice để chuyển đổi tài liệu Office")
+        raise RuntimeError("Cần cài LibreOffice (hoặc Microsoft Office trên Windows/macOS) để chuyển đổi tài liệu Office")
     return exe
 
 
@@ -164,7 +247,7 @@ def soffice_convert(src, fmt: str, outdir) -> Path:
            "--convert-to", fmt, "--outdir", str(outdir), str(src)]
     cmd = sandbox_prefix([outdir, profile], [Path(src).resolve()]) + cmd  # file Office lạ chạy trong sandbox khi có bwrap
     kw = {"preexec_fn": lambda: os.nice(10)} if os.name == "posix" else {}
-    r = subprocess.run(cmd, capture_output=True, timeout=300, **kw)
+    r = run_proc(cmd, timeout=300, **kw)
     out = Path(outdir) / f"{Path(src).stem}.{fmt.split(':')[0]}"
     if r.returncode or not out.exists():
         raise RuntimeError(f"LibreOffice lỗi: {r.stderr.decode(errors='ignore')[:200]}")

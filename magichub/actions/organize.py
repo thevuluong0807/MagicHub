@@ -7,7 +7,7 @@ from pathlib import Path
 import pymupdf
 from PIL import Image, ImageOps
 
-from .base import (action, kind_of, natural_key, open_pdf, out_path, parse_ranges, save_pdf,
+from .base import (action, kind_of, natural_key, open_pdf, out_path, parse_ranges, save_pdf, steps,
                    tmpdir, unique)
 from .convert import images_to_pdf
 
@@ -21,7 +21,7 @@ def merge(files, p):
     out = out_path(files[0], "merged", "pdf")
     doc = pymupdf.open()
     with tmpdir() as td:
-        for f in files:
+        for f in steps(files):
             if kind_of(f) == "pdf":
                 src = open_pdf(f)
             else:
@@ -48,7 +48,7 @@ def split(files, p):
         src = open_pdf(f)
         d = unique(f.with_name(f"{f.stem}_split"))
         d.mkdir()
-        for g in parse_ranges(p.get("ranges", ""), len(src)):
+        for g in steps(parse_ranges(p.get("ranges", ""), len(src)), lambda g: f"{f.name}: trang {g[0] + 1}"):
             part = pymupdf.open()
             part.insert_pdf(src, from_page=g[0], to_page=g[-1])
             tag = f"p{g[0] + 1}" if len(g) == 1 else f"p{g[0] + 1}-{g[-1] + 1}"
@@ -61,7 +61,7 @@ def split(files, p):
 def _rotate(deg):
     def run(files, p):
         outs = []
-        for f in files:
+        for f in steps(files):
             if kind_of(f) == "pdf":
                 doc = open_pdf(f)
                 for page in doc:
@@ -96,7 +96,7 @@ def _ask_level(files):
 def compress(files, p):
     dpi, q_pdf, side, q_img = LEVELS[p.get("level", "Vừa")]
     outs = []
-    for f in files:
+    for f in steps(files):
         out = out_path(f, "small")
         if kind_of(f) == "pdf":
             doc = open_pdf(f)
@@ -138,7 +138,7 @@ def reorder(files, p):
         kinds=PDF, ask=_ask_ranges("Trích trang", "Trang cần lấy (vd 1-3,5,7-)"))
 def extract_pages(files, p):
     outs = []
-    for f in files:
+    for f in steps(files):
         src = open_pdf(f)
         keep = [i for g in parse_ranges(p.get("ranges", "1"), len(src)) for i in g]
         doc = pymupdf.open()
@@ -152,11 +152,11 @@ def extract_pages(files, p):
 @action("organize.images", "organize", "Images", "Trích toàn bộ ảnh nhúng trong PDF ra thư mục", kinds=PDF)
 def extract_images(files, p):
     outs = []
-    for f in files:
+    for f in steps(files):
         doc = open_pdf(f)
         d = unique(f.with_name(f"{f.stem}_images"))
         seen, n = set(), 0
-        for page in doc:
+        for page in steps(doc, lambda pg: f"{f.name}: trang {pg.number + 1}/{len(doc)}"):
             for img in page.get_images(full=True):
                 if img[0] in seen:
                     continue
@@ -176,6 +176,6 @@ def extract_images(files, p):
 def zip_files(files, p):
     out = unique(files[0].with_name((files[0].stem if len(files) == 1 else "archive") + ".zip"))
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for f in files:
+        for f in steps(files):
             z.write(f, f.name)
     return [out]

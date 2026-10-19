@@ -6,7 +6,7 @@ import io
 import pymupdf
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 
-from .base import action, find_font, kind_of, open_pdf, out_path, save_pdf, tmpdir
+from .base import action, find_font, kind_of, open_pdf, out_path, save_pdf, steps, tmpdir
 from .convert import images_to_pdf
 from .edit import PDF, PI, _form, save_img
 
@@ -21,7 +21,7 @@ ALIGN = ["Giữa", "Trái", "Phải"]
             {"name": "value", "label": "Giá trị", "type": "int", "default": 50, "min": 1, "max": 20000}]))
 def resize(files, p):
     outs = []
-    for f in files:
+    for f in steps(files):
         im = ImageOps.exif_transpose(Image.open(f))
         w = round(im.width * p["value"] / 100) if p["mode"].startswith("Phần") else p["value"]
         size = (max(1, w), max(1, round(im.height * w / im.width)))
@@ -33,7 +33,7 @@ def resize(files, p):
 @action("edit.strip", "edit", "Strip", "Xoá metadata riêng tư (ảnh: EXIF/GPS; PDF: tác giả, XML, JavaScript)", kinds=PI)
 def strip(files, p):
     outs = []
-    for f in files:
+    for f in steps(files):
         out = out_path(f, "clean")
         if kind_of(f) == "pdf":
             doc = open_pdf(f)
@@ -62,10 +62,10 @@ def headfoot(files, p):
     font, size, margin = find_font(), p.get("size", 10), 28
     measure = pymupdf.Font(fontfile=font)
     outs = []
-    for f in files:
+    for f in steps(files):
         doc = open_pdf(f)
         total = len(doc)
-        for i, page in enumerate(doc, 1):
+        for i, page in steps(enumerate(doc, 1), lambda t: f"{f.name}: trang {t[0]}/{total}"):
             r = page.rect  # hệ toạ độ đã xoay; đổi về gốc bằng derotation_matrix
             for text, y in ((p.get("header"), margin + size), (p.get("footer"), r.height - margin)):
                 if not text:
@@ -83,7 +83,7 @@ def headfoot(files, p):
 @action("edit.flatten", "edit", "Flatten", "Ép ghi chú và ô form thành nội dung trang (không sửa lại được)", kinds=PDF)
 def flatten(files, p):
     outs = []
-    for f in files:
+    for f in steps(files):
         doc = open_pdf(f)
         doc.bake(annots=True, widgets=True)
         outs.append(save_pdf(doc, out_path(f, "flat")))
@@ -111,7 +111,8 @@ def compare(files, p):
     a, b = (open_pdf(f) for f in files)
     with tmpdir() as td:
         pages = []
-        for i in range(max(len(a), len(b))):
+        n = max(len(a), len(b))
+        for i in steps(range(n), lambda i: f"Trang {i + 1}/{n}"):
             ims = [Image.open(io.BytesIO(d[i].get_pixmap(dpi=100, alpha=False).tobytes("png"))).convert("RGB")
                    if i < len(d) else None for d in (a, b)]
             base = ims[0] or ims[1]
