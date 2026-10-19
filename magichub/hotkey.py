@@ -35,7 +35,7 @@ class Hotkey(QObject):
 
     def __init__(self, mods: list[str], key: str):
         super().__init__()
-        self.mods, self.key = set(mods), key.lower()
+        self.mods, self.key = set(mods), key.lower()  # key "" = chỉ giữ modifier
         self.down: set[str] = set()
         self.active = False
         self.injecting = False
@@ -54,7 +54,7 @@ class Hotkey(QObject):
         n = norm(k)
         if n:
             self.down.add(n)
-        if not self.active and self.key in self.down and self.mods <= self.down:
+        if not self.active and (not self.key or self.key in self.down) and self.mods <= self.down:
             self.active = True
             self.pressed.emit()
 
@@ -63,7 +63,7 @@ class Hotkey(QObject):
             return
         n = norm(k)
         self.down.discard(n)
-        if self.active and (n == self.key or n in self.mods):
+        if self.active and (n == self.key or n in self.mods):  # key rỗng: n==key không bao giờ đúng với n thật
             self.active = False
             self.released.emit()
 

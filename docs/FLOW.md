@@ -4,7 +4,7 @@
 
 ```
 Người dùng chọn file trong file manager
-   │  giữ Ctrl+Alt+M (mặc định)
+   │  giữ Ctrl+Alt+Shift (mặc định)
    ▼
 Hotkey.pressed ──► Hub.on_pressed
    • lưu text clipboard (nếu có), xoá clipboard

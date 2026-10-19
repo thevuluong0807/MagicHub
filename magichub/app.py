@@ -93,7 +93,7 @@ class Hub(QObject):
 
     def _show_hk(self):
         hk = self.cfg["hotkey"]
-        self.hk_label.setText(f"Giữ {'+'.join(hk['modifiers'] + [hk['key']])} để mở vòng tròn")
+        self.hk_label.setText(f"Giữ {'+'.join(hk['modifiers'] + ([hk['key']] if hk['key'] else []))} để mở vòng tròn")
 
     def start_hotkey(self):
         hk = self.cfg["hotkey"]
@@ -112,7 +112,7 @@ class Hub(QObject):
             config.save(self.cfg)
             self.start_hotkey()
             self._show_hk()
-            self.notify("MagicHub", "Phím tắt mới: " + "+".join(new[0] + [new[1]]))
+            self.notify("MagicHub", "Phím tắt mới: " + "+".join(new[0] + ([new[1]] if new[1] else [])))
 
     # ---- hotkey flow ----
     def on_pressed(self):

@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-DEFAULT = {"hotkey": {"modifiers": ["ctrl", "alt"], "key": "m"}}
+DEFAULT = {"hotkey": {"modifiers": ["ctrl", "alt", "shift"], "key": ""}}
 
 
 def config_dir() -> Path:

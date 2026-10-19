@@ -159,14 +159,27 @@ def ask_hotkey(mods: list[str], key: str) -> tuple[list[str], str] | None:
     pairs = [(M.ControlModifier, "ctrl"), (M.AltModifier, "alt"), (M.ShiftModifier, "shift"), (M.MetaModifier, "cmd")]
     if sys.platform == "darwin":  # Qt hoán Ctrl/Cmd trên macOS
         pairs = [(M.MetaModifier, "ctrl"), (M.AltModifier, "alt"), (M.ShiftModifier, "shift"), (M.ControlModifier, "cmd")]
+    MODKEYS = (Qt.Key_Control, Qt.Key_Alt, Qt.Key_Shift, Qt.Key_Meta, Qt.Key_AltGr)
     pending: dict = {}
+    names = lambda e: [n for flag, n in pairs if e.modifiers() & flag]
 
     class Dlg(QDialog):
+        def keyReleaseEvent(self, e):  # chỉ giữ modifier rồi nhả: chấp nhận tổ hợp >= 2 modifier
+            if e.key() in MODKEYS and "mods" in pending and "v" not in pending and not e.isAutoRepeat():
+                ms = pending["mods"]
+                if len(ms) >= 2:
+                    pending["v"] = (ms, "")
+                    lab.setText("+".join(ms))
+                    ok.setEnabled(True)
+
         def keyPressEvent(self, e):
             k = e.key()
             if k == Qt.Key_Escape:
                 return self.reject()
-            if k in (Qt.Key_Control, Qt.Key_Alt, Qt.Key_Shift, Qt.Key_Meta, Qt.Key_AltGr):
+            if k in MODKEYS:
+                pending.pop("v", None)
+                pending["mods"] = names(e)
+                lab.setText("+".join(pending["mods"]))
                 return
             if Qt.Key_F1 <= k <= Qt.Key_F12:
                 name = f"f{k - Qt.Key_F1 + 1}"
@@ -176,20 +189,21 @@ def ask_hotkey(mods: list[str], key: str) -> tuple[list[str], str] | None:
                 name = chr(k).lower()
             else:
                 return
-            ms = [n for flag, n in pairs if e.modifiers() & flag]
+            ms = names(e)
             if not ms:
                 lab.setText("Cần giữ ít nhất một phím Ctrl / Alt / Shift / Cmd")
                 return
             pending["v"] = (ms, name)
             lab.setText("+".join(ms + [name]))
+            pending.pop("mods", None)
             ok.setEnabled(True)
 
     dlg = Dlg()
     dlg.setWindowTitle("Đổi phím tắt")
     dlg.setMinimumWidth(340)
     lay = QVBoxLayout(dlg)
-    lay.addWidget(QLabel("Bấm tổ hợp phím mới (Esc để huỷ):"))
-    lab = QLabel("+".join(mods + [key]))
+    lay.addWidget(QLabel("Bấm tổ hợp mới (Esc để huỷ). Chỉ giữ 2+ phím Ctrl/Alt/Shift rồi nhả cũng được,\nvà tránh phím chữ: file manager sẽ gõ chữ đó vào ô tìm kiếm:"))
+    lab = QLabel("+".join(mods + ([key] if key else [])))
     lab.setAlignment(Qt.AlignCenter)
     lab.setStyleSheet("font-size:20px;font-weight:bold;padding:12px")
     lay.addWidget(lab)

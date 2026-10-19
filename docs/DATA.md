@@ -10,7 +10,7 @@
 ## config.json
 Tạo tự động lần chạy đầu; thiếu khoá → dùng mặc định; file hỏng → bỏ qua (không ghi đè).
 ```json
-{ "hotkey": { "modifiers": ["ctrl", "alt"], "key": "m" } }
+{ "hotkey": { "modifiers": ["ctrl", "alt", "shift"], "key": "" } }
 ```
 | Khoá | Giá trị | Ghi chú |
 |---|---|---|

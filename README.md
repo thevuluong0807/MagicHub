@@ -4,7 +4,7 @@ Tool chạy ngầm (khay hệ thống): chọn file trong trình quản lý file
 
 ```
         Convert (12h)
-       ╱     │     ╲        Giữ Ctrl+Alt+M → vòng tròn mở
+       ╱     │     ╲        Giữ Ctrl+Alt+Shift → vòng tròn mở
   Organize   ●    Edit      Di chuột: vòng trong = nhóm, vòng ngoài = tác vụ
                             Nhả phím = chạy. Nhả ở tâm/vòng trong = huỷ.
 ```

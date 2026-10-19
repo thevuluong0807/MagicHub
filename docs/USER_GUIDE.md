@@ -3,7 +3,7 @@
 ## Thao tác
 1. Chạy MagicHub (biểu tượng ba màu hiện ở khay hệ thống).
 2. Trong file manager, **chọn một hoặc nhiều file**.
-3. **Giữ `Ctrl+Alt+M`** — vòng tròn hiện tại con trỏ.
+3. **Giữ `Ctrl+Alt+Shift`** — vòng tròn hiện tại con trỏ.
 4. **Di chuột (không bấm)**: hướng tới nhóm (vòng trong) → tiếp tục ra vòng ngoài và chọn tác vụ. Dòng mô tả hiện dưới vòng.
 5. **Nhả phím** để chạy. Nhả khi con trỏ còn ở tâm hoặc vòng trong = huỷ.
 6. Một số tác vụ hỏi thêm (mật khẩu, từ khoá, vùng crop…). Xong → thông báo; **bấm thông báo** để mở thư mục kết quả.
