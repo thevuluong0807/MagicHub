@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.4.0**. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.5.0** (v0.4.0 đã có tag + Release CI). `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -15,10 +15,17 @@
 3. Cài Tesseract rồi thử Convert → OCR (chưa chạy thử).
 4. Thử chuột thật: Draw, Redact xem trước, Reorder (mới chỉ test headless).
 5. Chạy thử `install-integration` trong Nautilus thật; thử bản Windows/macOS từ Release (installer, dmg chưa chạy).
-6. v0.5: menu tuỳ biến (docs/PLAN.md).
+6. Thử chuột thật: Phím tắt…, Tuỳ chỉnh menu….
+7. Ý tưởng sau v0.5: hotkey Wayland qua portal, sandbox file lạ, xoay từng trang trong Reorder, ký số/notarize.
 
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
+
+## 2026-10-19 — v0.5.0
+- Config `hotkeys` (danh sách, mỗi mục có `group` tuỳ chọn); config cũ `hotkey` tự migrate. `Hotkey.injecting` dùng chung để phím giả lập không kích hoạt tổ hợp khác. `Hub.on_pressed(hk, group)`; vòng một nhóm vào thẳng tác vụ (`Wheel.locked`).
+- `config.menu` {hidden, order} áp dụng trong `actions.available()` (ẩn/sắp xếp; CLI `do` không bị ảnh hưởng).
+- `settings.py`: `ask_hotkeys`, `ask_menu`; menu khay "Phím tắt…" và "Tuỳ chỉnh menu…". Test `test_v05` (migrate, ẩn/sắp xếp, hộp thoại offscreen).
+- Chưa tag v0.5.0.
 
 ## 2026-10-19 — v0.4.0
 - `integrate.py` + CLI `install-integration [--remove]`: autostart, Nautilus script, Nemo action, Dolphin service menu; Windows SendTo/Startup `.cmd`; macOS LaunchAgent. Test Linux trong `test_integrate`.

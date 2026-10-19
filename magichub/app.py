@@ -78,12 +78,13 @@ class Hub(QObject):
         self.tray = QSystemTrayIcon(_icon())
         self.tray.messageClicked.connect(self.open_last)
         menu = QMenu()
-        hk = self.cfg["hotkey"]
+        self.hotkeys: list[Hotkey] = []
         self.hk_label = menu.addAction("")
         self.hk_label.setEnabled(False)
         self._show_hk()
         if hotkey_enabled:
-            menu.addAction("Đổi phím tắt…", self.change_hotkey)
+            menu.addAction("Phím tắt…", self.change_hotkeys)
+        menu.addAction("Tuỳ chỉnh menu…", self.change_menu)
         self.out_label = menu.addAction("")
         self.out_label.setEnabled(False)
         menu.addAction("Thư mục kết quả…", self.change_output)
@@ -95,7 +96,7 @@ class Hub(QObject):
         self.tray.setContextMenu(menu)
         self.tray.show()
         if hotkey_enabled:
-            self.start_hotkey()
+            self.start_hotkeys()
 
     def _show_out(self):
         d = self.cfg.get("output_dir")
@@ -112,39 +113,50 @@ class Hub(QObject):
             self.set_output(d)
 
     def _show_hk(self):
-        hk = self.cfg["hotkey"]
-        self.hk_label.setText(f"Giữ {'+'.join(hk['modifiers'] + ([hk['key']] if hk['key'] else []))} để mở vòng tròn")
+        hks = self.cfg["hotkeys"]
+        first = "+".join(hks[0]["modifiers"] + ([hks[0]["key"]] if hks[0]["key"] else []))
+        self.hk_label.setText(f"Giữ {first} để mở vòng tròn" + (f" (+{len(hks) - 1} phím khác)" if len(hks) > 1 else ""))
 
-    def start_hotkey(self):
-        hk = self.cfg["hotkey"]
-        self.hotkey = Hotkey(hk["modifiers"], hk["key"])
-        self.hotkey.pressed.connect(self.on_pressed)
-        self.hotkey.released.connect(self.on_released)
-        self.hotkey.start()
+    def start_hotkeys(self):
+        for h in self.cfg["hotkeys"]:
+            hk = Hotkey(h["modifiers"], h["key"])
+            hk.pressed.connect(lambda hk=hk, g=h.get("group"): self.on_pressed(hk, g))
+            hk.released.connect(self.on_released)
+            hk.start()
+            self.hotkeys.append(hk)
 
-    def change_hotkey(self):
-        from .dialogs import ask_hotkey
-        hk = self.cfg["hotkey"]
-        new = ask_hotkey(hk["modifiers"], hk["key"])
-        if new:
-            self.hotkey.stop()
-            self.cfg["hotkey"] = {"modifiers": new[0], "key": new[1]}
+    def change_hotkeys(self):
+        from .settings import ask_hotkeys
+        new = ask_hotkeys(self.cfg["hotkeys"])
+        if new is not None:
+            for hk in self.hotkeys:
+                hk.stop()
+            self.hotkeys = []
+            self.cfg["hotkeys"] = new
             config.save(self.cfg)
-            self.start_hotkey()
+            self.start_hotkeys()
             self._show_hk()
-            self.notify("MagicHub", "Phím tắt mới: " + "+".join(new[0] + ([new[1]] if new[1] else [])))
+            self.notify("MagicHub", f"Đã lưu {len(new)} phím tắt")
+
+    def change_menu(self):
+        from .settings import ask_menu
+        new = ask_menu(self.cfg["menu"])
+        if new is not None:
+            self.cfg["menu"] = new
+            config.save(self.cfg)  # available() đọc config mỗi lần mở vòng -> có hiệu lực ngay
+            self.notify("MagicHub", "Đã lưu menu")
 
     # ---- hotkey flow ----
-    def on_pressed(self):
+    def on_pressed(self, hk, group=None):
         if self.wheel.isVisible():  # vòng đang chờ click: bấm phím tắt lần nữa = huỷ
             self.wheel.cancel()
             return
-        self.held = True
+        self.held, self.only = True, group
         log.info("hotkey pressed")
         cb = self.app.clipboard()
         self.saved_text = cb.text() if cb.mimeData().hasText() else ""  # text() có thể treo 5s khi clipboard trống
         cb.clear()  # tránh dùng nhầm file cũ nếu Ctrl+C thất bại
-        self.hotkey.send_copy()
+        hk.send_copy()
         QTimer.singleShot(200, self.after_copy)
 
     def after_copy(self):
@@ -154,12 +166,12 @@ class Hub(QObject):
             cb.setText(self.saved_text)
         if not self.held:
             return
-        self.show_wheel(files)
+        self.show_wheel(files, only=self.only)
 
-    def show_wheel(self, files, click_mode=False):
+    def show_wheel(self, files, click_mode=False, only=None):
         if not files:
             return self.notify("MagicHub", "Chưa chọn file nào (hãy chọn file trong trình quản lý file rồi giữ phím)")
-        groups = available(files)
+        groups = [g for g in available(files) if only in (None, g[0])]
         if not groups:
             return self.notify("MagicHub", "Không có tác vụ nào áp dụng cho lựa chọn này")
         self.files = files

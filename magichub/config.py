@@ -10,7 +10,8 @@ def is_wayland() -> bool:
     return sys.platform.startswith("linux") and os.environ.get("XDG_SESSION_TYPE") == "wayland"
 
 
-DEFAULT = {"hotkey": {"modifiers": ["ctrl", "alt", "shift"], "key": ""}, "output_dir": None}
+DEFAULT = {"hotkeys": [{"modifiers": ["ctrl", "alt", "shift"], "key": "", "group": None}], "output_dir": None,
+           "menu": {"hidden": [], "order": []}}
 
 
 def config_dir() -> Path:
@@ -42,8 +43,12 @@ def load() -> dict:
     cfg = json.loads(json.dumps(DEFAULT))
     if p.exists():
         try:
-            cfg.update(json.loads(p.read_text("utf-8")))
-        except ValueError:
+            d = json.loads(p.read_text("utf-8"))
+            if "hotkey" in d:  # v0.1-0.4: một phím tắt -> danh sách
+                d.setdefault("hotkeys", [{**d["hotkey"], "group": None}])
+                del d["hotkey"]
+            cfg.update(d)
+        except (ValueError, TypeError):
             pass  # file hỏng -> dùng mặc định, không ghi đè file của user
     else:
         p.write_text(json.dumps(cfg, indent=2), "utf-8")

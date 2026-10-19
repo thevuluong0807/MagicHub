@@ -71,7 +71,8 @@ class Wheel(QWidget):
 
     def open(self, files, groups, click_mode=False):
         self.files, self.groups, self.click_mode = files, groups, click_mode
-        self.level, self.hover, self.swap, self.glow = None, None, 0.0, {}
+        self.locked = len(groups) == 1  # 1 nhóm (phím tắt riêng nhóm / chỉ còn 1 nhóm áp dụng): vào thẳng tác vụ
+        self.level, self.hover, self.swap, self.glow = (0 if self.locked else None), None, 0.0, {}
         flags = Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
         if not click_mode:  # chế độ giữ phím: không cướp focus của file manager; vẫn nhận click để chọn tác vụ
             flags |= Qt.WindowDoesNotAcceptFocus
@@ -109,7 +110,7 @@ class Wheel(QWidget):
             if idx is not None and r >= R_MID and self.groups[idx][2]:
                 self._set_level(idx)  # kéo ra ngoài nhóm: vòng tự đổi sang tác vụ của nhóm
                 idx = None
-        elif idx is None:
+        elif idx is None and not self.locked:
             self._set_level(None)  # về tâm: quay lại vòng nhóm
         self.hover = idx
         self.swap = min(1.0, self.swap + SWAP_STEP)
@@ -179,7 +180,8 @@ class Wheel(QWidget):
         font = QFont(FONT)
         font.setPointSize(9)
         p.setFont(font)
-        mid = f"{len(self.files)}\nFILE" if self.level is None else f"‹ BACK\n{self.groups[self.level][1].upper()}"
+        name = self.groups[self.level][1].upper() if self.level is not None else ""
+        mid = f"{len(self.files)}\nFILE" if self.level is None else (name if self.locked else f"‹ BACK\n{name}")
         p.drawText(QRectF(c.x() - R0, c.y() - R0, 2 * R0, 2 * R0), Qt.AlignCenter, mid)
         if act:  # mô tả đầy đủ ở dưới vòng vì tâm quá nhỏ
             font.setPointSize(10)

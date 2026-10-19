@@ -45,6 +45,7 @@ Một vòng duy nhất, nội dung đổi tại chỗ (không mở thêm vòng n
 - Giao diện: ô bo góc, tông cyber (cyan Convert · magenta Edit · xanh neon Organize).
 
 ## 3. Luồng dự phòng
+- Phím tắt gắn nhóm (`hotkeys[].group`): vòng chỉ có nhóm đó, mở thẳng ở tác vụ (không có bước chọn nhóm). Nếu lựa chọn chỉ còn một nhóm áp dụng được, vòng cũng vào thẳng tác vụ.
 - `magichub menu FILE...`: mở vòng tròn một lần tại con trỏ; **bấm chuột** để chọn, Esc để huỷ. Dùng cho script, menu chuột phải, hoặc nơi hotkey không chạy (Wayland).
 - `magichub do ACTION FILE... -p k=v`: chạy không GUI.
 

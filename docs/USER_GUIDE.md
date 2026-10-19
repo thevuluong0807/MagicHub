@@ -50,7 +50,8 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 ```
 
 ## Menu khay (chuột phải icon)
-- **Đổi phím tắt…**: bấm tổ hợp mới, áp dụng ngay.
+- **Phím tắt…**: thêm/xoá phím tắt; mỗi phím mở cả vòng hoặc vào thẳng một nhóm (vd `Ctrl+Alt+F9` → Convert). Chỉ giữ 2+ phím modifier cũng được.
+- **Tuỳ chỉnh menu…**: mỗi nhóm một tab; bỏ tích để ẩn tác vụ, kéo thả để đổi thứ tự. Áp dụng ngay.
 - **Thư mục kết quả…** / **Lưu cạnh file gốc**: chọn nơi lưu kết quả.
 
 ## Xử lý sự cố

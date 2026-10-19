@@ -36,7 +36,7 @@ Mức hỗ trợ: ✅ đã chạy thử · 🟡 viết theo tài liệu, **chưa
 ## Windows
 - `run.bat` dùng `pythonw` (không hiện cửa sổ console). Tự chạy: đặt shortcut của `run.bat` vào `shell:startup`.
 - Hotkey **không hoạt động khi cửa sổ đang focus chạy quyền Administrator** (UIPI chặn).
-- Phím chữ + Ctrl: tool đọc mã phím ảo (`vk`) để tránh ký tự điều khiển — chưa kiểm chứng; nếu hotkey không nhận, đổi `hotkey.key` sang `space` hoặc phím F.
+- Phím chữ + Ctrl: tool đọc mã phím ảo (`vk`) để tránh ký tự điều khiển — chưa kiểm chứng; nếu hotkey không nhận, đổi `hotkeys[].key` sang `space` hoặc phím F (hoặc dùng tổ hợp chỉ modifier).
 - Menu dự phòng: shortcut tới `run.bat menu "%1"` đặt trong thư mục `shell:sendto`.
 
 ## macOS

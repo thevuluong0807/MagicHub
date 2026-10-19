@@ -30,6 +30,7 @@ def norm(key) -> str | None:
 
 
 class Hotkey(QObject):
+    injecting = False  # dùng chung mọi tổ hợp: phím do send_copy giả lập không được kích hoạt tổ hợp khác
     pressed = Signal()
     released = Signal()
 
@@ -38,7 +39,6 @@ class Hotkey(QObject):
         self.mods, self.key = set(mods), key.lower()  # key "" = chỉ giữ modifier
         self.down: set[str] = set()
         self.active = False
-        self.injecting = False
         self.ctl = keyboard.Controller()
         self.listener = keyboard.Listener(on_press=self._press, on_release=self._release)
 
@@ -71,7 +71,7 @@ class Hotkey(QObject):
         """Gửi Ctrl+C (Cmd+C trên macOS) mà không để modifier của hotkey lẫn vào. Chạy ở thread riêng."""
         def work():
             copy_mod = "cmd" if sys.platform == "darwin" else "ctrl"
-            self.injecting = True
+            Hotkey.injecting = True
             try:
                 others = [m for m in self.mods if m != copy_mod]
                 for m in others:
@@ -85,6 +85,6 @@ class Hotkey(QObject):
                     self.ctl.press(KEYOBJ[m])
             finally:
                 time.sleep(0.05)
-                self.injecting = False
+                Hotkey.injecting = False
 
         threading.Thread(target=work, daemon=True).start()

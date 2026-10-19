@@ -159,6 +159,41 @@ def test_integrate(td):
     assert len(integrate.remove(td)) == len(made) and not (td / ".config/autostart/magichub.desktop").exists()
 
 
+def test_v05(td):
+    from magichub import config
+    # migrate config cũ (một hotkey) sang danh sách
+    (config.config_dir() / "config.json").write_text(json.dumps({"hotkey": {"modifiers": ["ctrl"], "key": "m"}}))
+    cfg = config.load()
+    assert cfg["hotkeys"] == [{"modifiers": ["ctrl"], "key": "m", "group": None}] and "hotkey" not in cfg
+    # ẩn + sắp xếp
+    pdf = make_pdf(td / "m.pdf")
+    ids = lambda: {g: [a.id for a in acts] for g, _, acts in available([pdf])}
+    base = ids()
+    assert "edit.crop" in base["edit"] and base["edit"][0] != "edit.crop"
+    cfg["menu"] = {"hidden": ["edit.protect"], "order": ["edit.crop"]}
+    config.save(cfg)
+    now = ids()
+    assert "edit.protect" not in now["edit"] and now["edit"][0] == "edit.crop"
+    assert len(now["edit"]) == len(base["edit"]) - 1
+    cfg["menu"] = {"hidden": [a for a in base["organize"]], "order": []}
+    config.save(cfg)
+    assert "organize" not in ids()  # nhóm rỗng tự biến mất
+    cfg["menu"] = {"hidden": [], "order": []}
+    config.save(cfg)
+    # hộp thoại cài đặt (offscreen): OK giữ nguyên dữ liệu
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication
+    from magichub.settings import ask_hotkeys, ask_menu
+    from PySide6.QtWidgets import QDialog
+    app = QApplication.instance() or QApplication([])
+    accept_open = lambda: [w.accept() for w in app.topLevelWidgets() if isinstance(w, QDialog) and w.isVisible()]
+    QTimer.singleShot(400, accept_open)
+    got = ask_menu({"hidden": ["edit.crop"], "order": []})
+    assert got and "edit.crop" in got["hidden"] and len(got["order"]) == len(__import__("magichub.actions.base", fromlist=["x"]).REGISTRY)
+    QTimer.singleShot(400, accept_open)
+    assert ask_hotkeys(cfg["hotkeys"]) == cfg["hotkeys"]
+
+
 def test_convert(td):
     pdf = make_pdf(td / "c.pdf")
     (o,) = run("convert.pdf.txt", [pdf])
@@ -232,7 +267,7 @@ def test_edit(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_convert, test_pdf_table, test_edit):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_convert, test_pdf_table, test_edit):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)

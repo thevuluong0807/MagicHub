@@ -10,16 +10,23 @@
 ## config.json
 Tạo tự động lần chạy đầu; thiếu khoá → dùng mặc định; file hỏng → bỏ qua (không ghi đè).
 ```json
-{ "hotkey": { "modifiers": ["ctrl", "alt", "shift"], "key": "" }, "output_dir": null }
+{
+  "hotkeys": [{ "modifiers": ["ctrl", "alt", "shift"], "key": "", "group": null },
+              { "modifiers": ["ctrl", "alt"], "key": "f9", "group": "convert" }],
+  "output_dir": null,
+  "menu": { "hidden": ["edit.protect"], "order": ["edit.crop"] }
+}
 ```
 | Khoá | Giá trị | Ghi chú |
 |---|---|---|
-| `hotkey.modifiers` | tập con của `ctrl`, `alt`, `shift`, `cmd` | Phải giữ đủ các phím này |
-| `hotkey.key` | một ký tự hoặc tên phím pynput (`space`, `f9`…) | Phím "giữ" chính; nhả bất kỳ phím nào của tổ hợp = xác nhận |
+| `hotkeys[].modifiers` | tập con của `ctrl`, `alt`, `shift`, `cmd` | Phải giữ đủ các phím này |
+| `hotkeys[].key` | `""`, một ký tự hoặc tên phím pynput (`space`, `f9`…) | `""` = chỉ giữ modifier (khuyên dùng: phím chữ làm file manager gõ chữ vào ô tìm kiếm). Nhả bất kỳ phím nào của tổ hợp = xác nhận |
+| `hotkeys[].group` | `null` \| `convert` \| `edit` \| `organize` | `null` = cả vòng; tên nhóm = vào thẳng tác vụ của nhóm đó |
+| `output_dir` | đường dẫn thư mục hoặc `null` | `null` = kết quả cạnh file gốc; đặt thì mọi kết quả vào thư mục đó (không tồn tại → cạnh file gốc) |
+| `menu.hidden` | danh sách `id` tác vụ | Ẩn khỏi vòng tròn và `actions` (CLI `do` vẫn chạy được). Nhóm hết tác vụ thì không hiện |
+| `menu.order` | danh sách `id` tác vụ | Thứ tự trong nhóm; `id` không có trong danh sách giữ thứ tự mặc định, xếp sau |
 
-`hotkey` và `output_dir` đổi được ngay từ menu khay (Đổi phím tắt… / Thư mục kết quả…).
-
-| `output_dir` | đường dẫn thư mục hoặc `null` | `null` = kết quả cạnh file gốc; đặt thì mọi kết quả vào thư mục đó (thư mục phải tồn tại, không thì quay về cạnh file gốc) |
+Config cũ (v0.1–0.4) có khoá `hotkey` (một tổ hợp) tự chuyển thành `hotkeys` khi đọc. Mọi mục đổi được ngay từ menu khay (Phím tắt… / Tuỳ chỉnh menu… / Thư mục kết quả…), có hiệu lực không cần khởi động lại.
 
 ## Action (registry, trong code — `actions/base.py`)
 | Trường | Kiểu | Ý nghĩa |
