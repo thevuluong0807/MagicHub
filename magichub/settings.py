@@ -49,6 +49,7 @@ def ask_hotkeys(hotkeys: list[dict]) -> list[dict] | None:
         bb2 = QDialogButtonBox(QDialogButtonBox.Ok)
         bb2.accepted.connect(d2.accept)
         v.addWidget(bb2)
+        _front(d2)  # dlg cha luôn-trên-cùng: popup con phải cùng cờ, nếu không bị che
         d2.exec()
         gid = list(GROUP_NAME)[pick.currentIndex()] or None
         if any(h["modifiers"] == mods and h["key"] == key for h in items):
