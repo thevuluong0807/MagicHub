@@ -114,6 +114,24 @@ def compress(files, p):
     return outs
 
 
+def _ask_reorder(files):
+    from ..viewer import ask_reorder
+
+    return ask_reorder(files[0])
+
+
+@action("organize.reorder", "organize", "Reorder", "Sắp xếp lại / xoá trang PDF bằng ảnh thu nhỏ (kéo thả)",
+        kinds=PDF, ask=_ask_reorder, check=lambda files: len(files) == 1)
+def reorder(files, p):
+    """params.order: danh sách chỉ số trang (0-based) giữ lại, theo thứ tự mới; trang không có trong list bị xoá."""
+    doc = open_pdf(files[0])
+    order = [int(i) for i in p.get("order", [])]
+    if not order or any(i < 0 or i >= len(doc) for i in order):
+        raise ValueError("Thứ tự trang không hợp lệ")
+    doc.select(order)
+    return [save_pdf(doc, out_path(files[0], "reordered"))]
+
+
 @action("organize.pages", "organize", "Pages", "Trích các trang chọn ra PDF mới",
         kinds=PDF, ask=_ask_ranges("Trích trang", "Trang cần lấy (vd 1-3,5,7-)"))
 def extract_pages(files, p):

@@ -41,15 +41,24 @@ def protect(files, p):
 
 
 # ---------- Redact ----------
-@action("edit.redact", "edit", "Redact", "Xoá vĩnh viễn từ khoá khỏi PDF (che đen + gỡ text bên dưới)", kinds=PDF,
-        ask=_form("Redact", [{"name": "keywords", "label": "Từ khoá (mỗi dòng/dấu phẩy 1 mục)",
-                              "type": "multiline", "required": True}]))
+def _ask_redact(files):
+    from ..viewer import ask_redact
+
+    return ask_redact(files[0])
+
+
+@action("edit.redact", "edit", "Redact", "Xoá vĩnh viễn từ khoá/vùng tự chọn khỏi PDF (xem trước, che đen + gỡ text bên dưới)",
+        kinds=PDF, ask=_ask_redact)
 def redact(files, p):
-    kws, outs = _words(p["keywords"]), []
-    for f in files:
+    """params: keywords (tuỳ chọn, mọi file) + rects (tuỳ chọn, chỉ file đầu): [{page,x0,y0,x1,y1}] toạ độ 0..1 theo trang."""
+    kws, outs = _words(p.get("keywords", "")), []
+    for n, f in enumerate(files):
         doc, total = open_pdf(f), 0
-        for page in doc:
+        rects = p.get("rects", []) if n == 0 else []
+        for i, page in enumerate(doc):
+            W, H = page.rect.width, page.rect.height
             hits = [r for k in kws for r in page.search_for(k)]
+            hits += [pymupdf.Rect(m["x0"] * W, m["y0"] * H, m["x1"] * W, m["y1"] * H) for m in rects if m["page"] == i]
             for r in hits:
                 page.add_redact_annot(r, fill=(0, 0, 0))
             if hits:
@@ -58,8 +67,49 @@ def redact(files, p):
         if total:
             outs.append(save_pdf(doc, out_path(f, "redacted")))
     if not outs:
-        raise ValueError("Không tìm thấy từ khoá nào trong PDF (PDF scan cần OCR trước)")
+        raise ValueError("Không tìm thấy từ khoá/vùng nào để che (PDF scan cần OCR trước)")
     return outs
+
+
+# ---------- Annotate (vẽ tay + ghi chú) ----------
+NOTE_FS, NOTE_W = 11, 0.35  # cỡ chữ ghi chú (pt), bề rộng hộp (tỉ lệ khổ trang)
+
+
+def note_box(text: str, W: float, H: float, x: float, y: float) -> pymupdf.Rect:
+    """Hộp ghi chú tại (x, y) 0..1; cao ước lượng theo số dòng (cùng công thức cho xem trước và PDF)."""
+    bw = min(NOTE_W * W, W - x * W - 4)
+    lines = sum(max(1, -(-int(len(l) * NOTE_FS * 0.6) // max(int(bw - 8), 1))) for l in text.split("\n"))
+    return pymupdf.Rect(x * W, y * H, x * W + bw, min(y * H + lines * NOTE_FS * 1.4 + 8, H - 2))
+
+
+def _ask_annotate(files):
+    from ..viewer import ask_annotate
+
+    return ask_annotate(files[0])
+
+
+@action("edit.annotate", "edit", "Draw", "Vẽ tay và ghi chú lên PDF bằng trình xem nhỏ", kinds=PDF,
+        ask=_ask_annotate, check=lambda files: len(files) == 1)
+def annotate(files, p):
+    """params.marks: {type:ink,page,pts:[[x,y]..],color:[r,g,b],w} | {type:note,page,x,y,text}; toạ độ 0..1 theo trang."""
+    marks = p.get("marks", [])
+    if not marks:
+        raise ValueError("Chưa vẽ hay ghi chú gì")
+    doc = open_pdf(files[0])
+    font = find_font()
+    for m in marks:
+        page = doc[m["page"]]
+        W, H = page.rect.width, page.rect.height
+        if m["type"] == "ink":
+            a = page.add_ink_annot([[(x * W, y * H) for x, y in m["pts"]]])
+            a.set_colors(stroke=tuple(m.get("color", (0.85, 0.1, 0.1))))
+            a.set_border(width=m.get("w", 2))
+            a.update()
+        else:
+            r = note_box(m["text"], W, H, m["x"], m["y"])
+            page.draw_rect(r, color=(0.8, 0.6, 0), fill=(1, 0.95, 0.6), width=0.8)
+            page.insert_textbox(r + (4, 3, -4, -2), m["text"], fontsize=NOTE_FS, fontname="dj", fontfile=font)
+    return [save_pdf(doc, out_path(files[0], "annotated"))]
 
 
 # ---------- Highlight ----------

@@ -7,6 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()  # config riêng cho test, không đụng config thật
 
 import pymupdf
@@ -102,6 +103,50 @@ def test_options(td):
     assert ("convert.pdf.ocr" in [a.id for _, _, acts in available([pdf]) for a in acts]) == (shutil.which("tesseract") is not None)
 
 
+def test_v03(td):
+    pdf = make_pdf(td / "v.pdf", pages=3)
+    marks = [{"type": "ink", "page": 0, "pts": [[0.1, 0.1], [0.5, 0.3], [0.8, 0.2]], "color": [1, 0, 0], "w": 2},
+             {"type": "note", "page": 1, "x": 0.2, "y": 0.4, "text": "Kiểm tra lại số liệu\ndòng hai"}]
+    (o,) = run("edit.annotate", [pdf], marks=marks)
+    d = pymupdf.open(str(o))
+    assert len(list(d[0].annots())) == 1 and "Kiểm tra" in d[1].get_text()
+    try:
+        run("edit.annotate", [pdf], marks=[])
+        assert False
+    except ValueError:
+        pass
+    (o,) = run("organize.reorder", [pdf], order=[2, 0])
+    t = pdf_text(o)
+    assert len(pymupdf.open(str(o))) == 2 and t.index("page 3") < t.index("page 1") and "page 2" not in t
+    # redact vùng tay: gỡ text dưới vùng, không cần từ khoá
+    W, H = pymupdf.open(str(pdf))[0].rect.width, pymupdf.open(str(pdf))[0].rect.height
+    (o,) = run("edit.redact", [pdf], rects=[{"page": 0, "x0": 0, "y0": 0.05, "x1": 1, "y1": 0.2}])
+    d = pymupdf.open(str(o))
+    assert "Secret" not in d[0].get_text() and "Secret" in d[1].get_text()
+    # GUI offscreen: canvas bắt vẽ/vùng đúng toạ độ
+    from PySide6.QtCore import QEvent, QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+    from PySide6.QtWidgets import QApplication
+    from magichub.viewer import PageCanvas
+    app = QApplication.instance() or QApplication([])
+    cv = PageCanvas(pymupdf.open(str(pdf)), "ink")
+    cv.resize(700, 800)
+    box = cv._box()
+    ev = lambda t, x, y: QMouseEvent(t, QPointF(x, y), Qt.LeftButton, Qt.LeftButton, Qt.NoModifier)
+    cx, cy = box.x() + box.width() / 2, box.y() + box.height() / 2
+    cv.mousePressEvent(ev(QEvent.MouseButtonPress, cx, cy))
+    cv.mouseMoveEvent(ev(QEvent.MouseMove, cx + 50, cy + 40))
+    cv.mouseReleaseEvent(ev(QEvent.MouseButtonRelease, cx + 50, cy + 40))
+    assert len(cv.marks) == 1 and abs(cv.marks[0]["pts"][0][0] - 0.5) < 0.01
+    cv.undo()
+    assert not cv.marks
+    cv.tool = "rect"
+    cv.mousePressEvent(ev(QEvent.MouseButtonPress, cx, cy))
+    cv.mouseReleaseEvent(ev(QEvent.MouseButtonRelease, cx + 100, cy + 100))
+    assert cv.marks[0]["type"] == "rect" and cv.marks[0]["x1"] > cv.marks[0]["x0"]
+    cv.grab()  # vẽ không crash
+
+
 def test_convert(td):
     pdf = make_pdf(td / "c.pdf")
     (o,) = run("convert.pdf.txt", [pdf])
@@ -175,7 +220,7 @@ def test_edit(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_convert, test_pdf_table, test_edit):
+    for t in (test_available, test_organize, test_options, test_v03, test_convert, test_pdf_table, test_edit):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)

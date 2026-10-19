@@ -7,13 +7,14 @@ magichub/
   hotkey.py         pynput Listener, trạng thái giữ phím, send_copy (Ctrl+C giả lập)
   wheel.py          Widget vòng tròn (QPainter, đa giác bo góc), timer đọc chuột, đổi nhóm↔tác vụ tại chỗ
   geometry.py       Toán thuần: ring_hit(dx,dy,n) → (ô, bán kính)   ← có test, không Qt
-  dialogs.py        ask_form (form tham số) + ask_crop (chọn vùng)
+  dialogs.py        ask_form (form tham số) + ask_crop (chọn vùng) + ask_hotkey
+  viewer.py         Trình xem PDF nhỏ: PageCanvas (vẽ/ghi chú/vùng), ask_annotate, ask_redact (xem trước), ask_reorder
   config.py         Đường dẫn dữ liệu theo OS + config.json
   actions/
     base.py         Action, REGISTRY, helper (unique, out_path, parse_ranges, soffice, font, PDF)
     convert.py      bảng TARGETS → đăng ký convert.<kind>.<to>
-    organize.py     merge, split, rotate, compress, pages, images, zip
-    edit.py         protect, redact, highlight, text, image, crop
+    organize.py     merge, split, rotate, compress, reorder, pages, images, zip
+    edit.py         protect, redact, highlight, annotate (Draw), text, image, crop
     __init__.py     available(files), by_id(id)
 tests/test_engine.py  assert-based, không cần display
 ```
