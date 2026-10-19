@@ -1,6 +1,6 @@
 # MagicHub
 
-Tool chạy ngầm (khay hệ thống): chọn file trong trình quản lý file → **giữ phím tắt** → **di chuột theo hướng** → **click** tác vụ. Một vòng tròn hiện tại con trỏ với 3 nhóm tác vụ: **Convert · Edit · Organize**.
+Tool chạy ngầm (khay hệ thống): Tool hỗ trợ việc chuyển đổi (convert) file với hầu hết các định dạng, hỗ trợ chỉnh sửa file/ảnh trực tiếp. Chọn file trong trình quản lý file → **giữ phím tắt** → **di chuột theo hướng** → **click** tác vụ. Một vòng tròn hiện tại con trỏ với 3 nhóm tác vụ: **Convert · Edit · Organize**.
 
 ```
         Convert (12h)
