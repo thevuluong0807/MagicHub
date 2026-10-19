@@ -1,0 +1,48 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - {os: windows-latest, name: windows}
+          - {os: ubuntu-22.04, name: linux}
+          - {os: macos-latest, name: macos}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install -r requirements.txt pyinstaller
+      - name: Build
+        run: pyinstaller --noconfirm --name MagicHub --windowed --collect-submodules magichub --collect-all pdf2docx entry.py
+      - name: Pack
+        shell: bash
+        run: |
+          cd dist
+          if [ "${{ matrix.name }}" = windows ]; then
+            7z a ../MagicHub-windows.zip MagicHub
+          elif [ "${{ matrix.name }}" = macos ]; then
+            ditto -c -k --keepParent MagicHub.app ../MagicHub-macos.zip
+          else
+            tar czf ../MagicHub-linux.tar.gz MagicHub
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MagicHub-${{ matrix.name }}
+          path: MagicHub-*
+
+  publish:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions: {contents: write}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: {merge-multiple: true}
+      - uses: softprops/action-gh-release@v2
+        with: {files: "MagicHub-*"}
