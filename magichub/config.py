@@ -44,3 +44,7 @@ def load() -> dict:
     else:
         p.write_text(json.dumps(cfg, indent=2), "utf-8")
     return cfg
+
+
+def save(cfg: dict) -> None:
+    (config_dir() / "config.json").write_text(json.dumps(cfg, indent=2), "utf-8")

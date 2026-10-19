@@ -78,23 +78,48 @@ class Hub(QObject):
         self.tray.messageClicked.connect(self.open_last)
         menu = QMenu()
         hk = self.cfg["hotkey"]
-        menu.addAction(f"Giữ {'+'.join(hk['modifiers'] + [hk['key']])} để mở vòng tròn").setEnabled(False)
+        self.hk_label = menu.addAction("")
+        self.hk_label.setEnabled(False)
+        self._show_hk()
+        if hotkey_enabled:
+            menu.addAction("Đổi phím tắt…", self.change_hotkey)
         menu.addAction("Mở thư mục cấu hình", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(config.config_dir()))))
         menu.addAction("Thoát", app.quit)
         self._menu = menu
         self.tray.setContextMenu(menu)
         self.tray.show()
         if hotkey_enabled:
-            self.hotkey = Hotkey(hk["modifiers"], hk["key"])
-            self.hotkey.pressed.connect(self.on_pressed)
-            self.hotkey.released.connect(self.on_released)
-            self.hotkey.start()
+            self.start_hotkey()
+
+    def _show_hk(self):
+        hk = self.cfg["hotkey"]
+        self.hk_label.setText(f"Giữ {'+'.join(hk['modifiers'] + [hk['key']])} để mở vòng tròn")
+
+    def start_hotkey(self):
+        hk = self.cfg["hotkey"]
+        self.hotkey = Hotkey(hk["modifiers"], hk["key"])
+        self.hotkey.pressed.connect(self.on_pressed)
+        self.hotkey.released.connect(self.on_released)
+        self.hotkey.start()
+
+    def change_hotkey(self):
+        from .dialogs import ask_hotkey
+        hk = self.cfg["hotkey"]
+        new = ask_hotkey(hk["modifiers"], hk["key"])
+        if new:
+            self.hotkey.stop()
+            self.cfg["hotkey"] = {"modifiers": new[0], "key": new[1]}
+            config.save(self.cfg)
+            self.start_hotkey()
+            self._show_hk()
+            self.notify("MagicHub", "Phím tắt mới: " + "+".join(new[0] + [new[1]]))
 
     # ---- hotkey flow ----
     def on_pressed(self):
         if self.wheel.isVisible():
             return
         self.held = True
+        log.info("hotkey pressed")
         cb = self.app.clipboard()
         self.saved_text = cb.text() if cb.mimeData().hasText() else ""  # text() có thể treo 5s khi clipboard trống
         cb.clear()  # tránh dùng nhầm file cũ nếu Ctrl+C thất bại

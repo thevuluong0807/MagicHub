@@ -150,3 +150,56 @@ def ask_crop(files) -> dict | None:
         return None
     r, w, h = lab.rect_sel(), pix.width(), pix.height()
     return {"box": (r.left() / w, r.top() / h, r.right() / w, r.bottom() / h)}
+
+
+def ask_hotkey(mods: list[str], key: str) -> tuple[list[str], str] | None:
+    """Bấm tổ hợp mới (ít nhất 1 modifier + 1 phím). Trả (modifiers, key) hoặc None nếu huỷ."""
+    import sys
+    M = Qt.KeyboardModifier
+    pairs = [(M.ControlModifier, "ctrl"), (M.AltModifier, "alt"), (M.ShiftModifier, "shift"), (M.MetaModifier, "cmd")]
+    if sys.platform == "darwin":  # Qt hoán Ctrl/Cmd trên macOS
+        pairs = [(M.MetaModifier, "ctrl"), (M.AltModifier, "alt"), (M.ShiftModifier, "shift"), (M.ControlModifier, "cmd")]
+    pending: dict = {}
+
+    class Dlg(QDialog):
+        def keyPressEvent(self, e):
+            k = e.key()
+            if k == Qt.Key_Escape:
+                return self.reject()
+            if k in (Qt.Key_Control, Qt.Key_Alt, Qt.Key_Shift, Qt.Key_Meta, Qt.Key_AltGr):
+                return
+            if Qt.Key_F1 <= k <= Qt.Key_F12:
+                name = f"f{k - Qt.Key_F1 + 1}"
+            elif k == Qt.Key_Space:
+                name = "space"
+            elif 0x20 < k < 0x7F:
+                name = chr(k).lower()
+            else:
+                return
+            ms = [n for flag, n in pairs if e.modifiers() & flag]
+            if not ms:
+                lab.setText("Cần giữ ít nhất một phím Ctrl / Alt / Shift / Cmd")
+                return
+            pending["v"] = (ms, name)
+            lab.setText("+".join(ms + [name]))
+            ok.setEnabled(True)
+
+    dlg = Dlg()
+    dlg.setWindowTitle("Đổi phím tắt")
+    dlg.setMinimumWidth(340)
+    lay = QVBoxLayout(dlg)
+    lay.addWidget(QLabel("Bấm tổ hợp phím mới (Esc để huỷ):"))
+    lab = QLabel("+".join(mods + [key]))
+    lab.setAlignment(Qt.AlignCenter)
+    lab.setStyleSheet("font-size:20px;font-weight:bold;padding:12px")
+    lay.addWidget(lab)
+    bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    ok = bb.button(QDialogButtonBox.Ok)
+    ok.setEnabled(False)
+    ok.setFocusPolicy(Qt.NoFocus)
+    bb.button(QDialogButtonBox.Cancel).setFocusPolicy(Qt.NoFocus)
+    bb.accepted.connect(dlg.accept)
+    bb.rejected.connect(dlg.reject)
+    lay.addWidget(bb)
+    _front(dlg)
+    return pending["v"] if dlg.exec() == QDialog.Accepted and "v" in pending else None

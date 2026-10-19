@@ -24,6 +24,8 @@ def norm(key) -> str | None:
         return chr(vk).lower()
     if ch and ord(ch) >= 32:
         return ch.lower()
+    if sys.platform != "darwin" and vk and 0x20 <= vk <= 0x7E:  # Ctrl+M cho char '\r' -> dùng keysym/vk
+        return chr(vk).lower()
     return None
 
 
@@ -42,6 +44,9 @@ class Hotkey(QObject):
 
     def start(self):
         self.listener.start()
+
+    def stop(self):
+        self.listener.stop()
 
     def _press(self, k):
         if self.injecting:
