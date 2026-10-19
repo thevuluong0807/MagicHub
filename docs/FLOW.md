@@ -35,11 +35,13 @@ Thông báo khay "Xong" (bấm để mở thư mục) + ghi history.jsonl
 ```
 
 ## 2. Quy tắc chọn trên vòng tròn
-- Bán kính < 48 px: vùng chết (huỷ).
-- 48–132 px: **vòng nhóm**. Hướng chuột chọn nhóm; nhóm được chọn bung vòng tác vụ.
-- 132–272 px: **vòng tác vụ**. Hướng chuột chọn tác vụ trong cung của nhóm đó.
-- Nhóm đầu tiên (Convert) nằm giữa hướng 12h; các nhóm còn lại chia đều theo chiều kim đồng hồ.
+Một vòng duy nhất, nội dung đổi tại chỗ (không mở thêm vòng ngoài):
+- Bán kính < 58 px: vùng chết ở tâm.
+- **Vòng nhóm** (mặc định): hướng chuột rê sáng nhóm. Kéo ra nửa ngoài của ô (≥ 109 px) → vòng tự đổi sang **tác vụ của nhóm đó** (hiệu ứng ~110 ms).
+- **Vòng tác vụ**: các tác vụ chia đều 360°, tác vụ đầu giữa hướng 12h. Hướng chuột chọn tác vụ.
+- Về tâm (< 58 px) → quay lại vòng nhóm. Nhả phím ở tâm hoặc khi chưa chọn tác vụ = huỷ.
 - Chỉ nhóm/tác vụ áp dụng được cho lựa chọn mới xuất hiện (xem bảng trong USER_GUIDE).
+- Giao diện: ô bo góc, tông cyber (cyan Convert · magenta Edit · xanh neon Organize).
 
 ## 3. Luồng dự phòng
 - `magichub menu FILE...`: mở vòng tròn một lần tại con trỏ; **bấm chuột** để chọn, Esc để huỷ. Dùng cho script, menu chuột phải, hoặc nơi hotkey không chạy (Wayland).

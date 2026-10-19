@@ -4,8 +4,8 @@
 1. Chạy MagicHub (biểu tượng ba màu hiện ở khay hệ thống).
 2. Trong file manager, **chọn một hoặc nhiều file**.
 3. **Giữ `Ctrl+Alt+Shift`** — vòng tròn hiện tại con trỏ.
-4. **Di chuột (không bấm)**: hướng tới nhóm (vòng trong) → tiếp tục ra vòng ngoài và chọn tác vụ. Dòng mô tả hiện dưới vòng.
-5. **Nhả phím** để chạy. Nhả khi con trỏ còn ở tâm hoặc vòng trong = huỷ.
+4. **Di chuột (không bấm)**: hướng tới nhóm rồi kéo ra ngoài → vòng tự đổi sang tác vụ của nhóm; chọn tác vụ bằng hướng. Về tâm để quay lại nhóm. Dòng mô tả hiện dưới vòng.
+5. **Nhả phím** để chạy. Nhả khi chưa chọn tác vụ (ở tâm hoặc vòng nhóm) = huỷ.
 6. Một số tác vụ hỏi thêm (mật khẩu, từ khoá, vùng crop…). Xong → thông báo; **bấm thông báo** để mở thư mục kết quả.
 
 File gốc không bao giờ bị sửa; kết quả nằm cạnh file gốc (xem quy ước tên trong DATA.md).
@@ -54,6 +54,6 @@ Sửa `config.json` (đường dẫn trong DATA.md) rồi khởi động lại M
 |---|---|
 | Không có gì xảy ra khi giữ phím | Kiểm tra phiên Wayland/quyền macOS (PLATFORM.md); xem `magichub.log` |
 | "Chưa chọn file nào" | Cửa sổ focus phải là file manager đang có file được chọn; thử chọn lại rồi giữ phím |
-| Vòng tròn mở rồi huỷ ngay | Giữ phím đủ lâu và **di chuột ra vòng ngoài** trước khi nhả |
+| Vòng tròn mở rồi huỷ ngay | Giữ phím đủ lâu và **kéo ra ô tác vụ** trước khi nhả |
 | Lỗi LibreOffice | Cài LibreOffice; đóng các cửa sổ LibreOffice đang treo |
 | PDF → DOCX/XLSX xấu | Giới hạn đã biết, xem CONSTRAINTS.md |

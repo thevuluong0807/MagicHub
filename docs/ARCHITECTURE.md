@@ -5,8 +5,8 @@ magichub/
   __main__.py       CLI: run | menu | do | actions
   app.py            Hub: tray, hotkey flow, đọc clipboard, Job (QRunnable), thông báo, history
   hotkey.py         pynput Listener, trạng thái giữ phím, send_copy (Ctrl+C giả lập)
-  wheel.py          Widget vòng tròn (QPainter), timer đọc chuột
-  geometry.py       Toán thuần: hit(dx,dy,counts) → (nhóm, tác vụ)   ← có test, không Qt
+  wheel.py          Widget vòng tròn (QPainter, đa giác bo góc), timer đọc chuột, đổi nhóm↔tác vụ tại chỗ
+  geometry.py       Toán thuần: ring_hit(dx,dy,n) → (ô, bán kính)   ← có test, không Qt
   dialogs.py        ask_form (form tham số) + ask_crop (chọn vùng)
   config.py         Đường dẫn dữ liệu theo OS + config.json
   actions/

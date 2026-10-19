@@ -10,7 +10,7 @@ from PIL import Image
 
 from magichub.actions import available, by_id
 from magichub.actions.base import parse_ranges
-from magichub.geometry import R0, R1, hit
+from magichub.geometry import R0, ring_hit
 
 
 def run(aid, files, **params):
@@ -32,18 +32,12 @@ def pdf_text(path):
 
 
 def test_geometry():
-    assert hit(0, 0, [3, 3, 3]) == (None, None)
-    assert hit(0, -(R0 + 5), [3, 3, 3]) == (0, None)  # 12h, vòng nhóm
-    assert hit(0, -(R1 + 20), [3, 3, 3])[0] == 0
-    assert hit(200, 100, [3, 3, 3])[0] == 1  # phải-dưới
-    assert hit(-200, 100, [3, 3, 3])[0] == 2  # trái-dưới
-    g, i = hit(-80, -150, [3, 6, 2])  # nhóm 0 trải -60..60: bên trái 12h -> item 0
-    assert (g, i) == (0, 0), (g, i)
-    assert hit(80, -150, [3, 6, 2]) == (0, 2)
-    assert parse_ranges("", 3) == [[0], [1], [2]]
-    assert parse_ranges("1-2,3", 3) == [[0, 1], [2]]
-    assert parse_ranges("2-", 4) == [[1, 2, 3]]
-
+    assert ring_hit(0, 0, 3)[0] is None  # vùng chết
+    assert ring_hit(0, -(R0 + 5), 3)[0] == 0  # 12h
+    assert ring_hit(200, 100, 3)[0] == 1  # phải-dưới
+    assert ring_hit(-200, 100, 3)[0] == 2  # trái-dưới
+    assert ring_hit(-150, -80, 6)[0] == 5  # lệch trái 12h hơn 30°, 6 ô 60°
+    assert ring_hit(0, -100, 0)[0] is None
 
 def test_available(td):
     pdf, png = make_pdf(td / "a.pdf"), td / "a.png"

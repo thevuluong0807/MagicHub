@@ -1,4 +1,4 @@
-PySide6-Essentials>=6.6
+PySide6-Essentials>=6.6,<6.12  # 6.12.0 crash: refcount None
 pynput>=1.7
 pymupdf>=1.24
 pillow>=10
