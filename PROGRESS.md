@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.5.0** (v0.4.0 đã có tag + Release CI). `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.6.0** (chưa tag). CI: v0.1.0 xanh; v0.4.0 và v0.5.0 job Windows đỏ (Linux/macOS xanh) — nghi bước `iscc` (không có trong PATH / `/D` bị Git Bash đổi); đã sửa trong workflow, cần tag mới để xác nhận. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -20,6 +20,12 @@
 
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
+
+## 2026-10-19 — v0.6.0
+- Sandbox LibreOffice bằng bubblewrap (`base.sandbox_prefix`): ro-bind `/`, không mạng, tmpfs `/tmp` `/run`, chỉ ghi outdir + profile; file nguồn ro-bind lại. Test `test_sandbox` (ghi ngoài vùng bị chặn, không mạng) + test_convert chạy qua sandbox.
+- Reorder: xoay phải/trái từng trang (`params.rotate`).
+- Workflow: bước installer Windows tách riêng, `continue-on-error`, tự cài Inno Setup nếu thiếu, `MSYS2_ARG_CONV_EXCL`; `.iss` dùng `x64`.
+- Chưa làm (cần môi trường/giấy tờ không có): hotkey Wayland qua portal GlobalShortcuts (cần GNOME 48+/KDE 6, máy dev X11), ký số Windows + notarize macOS (cần chứng chỉ trả phí), thử OCR (cần cài Tesseract), sandbox Windows/macOS và sandbox cho PyMuPDF.
 
 ## 2026-10-19 — v0.5.0
 - Config `hotkeys` (danh sách, mỗi mục có `group` tuỳ chọn); config cũ `hotkey` tự migrate. `Hotkey.injecting` dùng chung để phím giả lập không kích hoạt tổ hợp khác. `Hub.on_pressed(hk, group)`; vòng một nhóm vào thẳng tác vụ (`Wheel.locked`).

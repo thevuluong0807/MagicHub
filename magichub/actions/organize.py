@@ -123,11 +123,13 @@ def _ask_reorder(files):
 @action("organize.reorder", "organize", "Reorder", "Sắp xếp lại / xoá trang PDF bằng ảnh thu nhỏ (kéo thả)",
         kinds=PDF, ask=_ask_reorder, check=lambda files: len(files) == 1)
 def reorder(files, p):
-    """params.order: danh sách chỉ số trang (0-based) giữ lại, theo thứ tự mới; trang không có trong list bị xoá."""
+    """params.order: chỉ số trang (0-based) giữ lại theo thứ tự mới, trang vắng mặt bị xoá; params.rotate: {chỉ số gốc: độ xoay thêm}."""
     doc = open_pdf(files[0])
     order = [int(i) for i in p.get("order", [])]
     if not order or any(i < 0 or i >= len(doc) for i in order):
         raise ValueError("Thứ tự trang không hợp lệ")
+    for i, deg in p.get("rotate", {}).items():  # {chỉ số trang gốc: độ xoay thêm}, làm trước select để chỉ số còn đúng
+        doc[int(i)].set_rotation((doc[int(i)].rotation + int(deg)) % 360)
     doc.select(order)
     return [save_pdf(doc, out_path(files[0], "reordered"))]
 

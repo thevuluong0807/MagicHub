@@ -31,7 +31,7 @@
 | Markup: bút | Nét vẽ trên PDF là annotation (sửa được trong trình xem PDF khác); trên ảnh được vẽ thẳng vào pixel. Ghi chú: hộp chữ in cứng, cỡ hộp ước lượng, chữ dài có thể bị cắt. Xem trước ở trang đầu của file đầu; chọn nhiều file thì mark áp cho từng file (mark theo trang bỏ qua file ít trang hơn) |
 
 ## Organize
-- Reorder: chỉ 1 PDF; chỉ đổi thứ tự/xoá trang (chưa xoay từng trang).
+- Reorder: chỉ 1 PDF; đổi thứ tự, xoay (90°), xoá trang.
 - Merge sắp xếp **theo tên file (tự nhiên)**, không theo thứ tự chọn, vì file manager không đảm bảo thứ tự clipboard.
 - Compress: 3 mức. PDF: Nhẹ 150 dpi/Q80 · Vừa 110/Q65 · Mạnh 72/Q45; ảnh: cạnh dài tối đa 3200/2560/1600 px. PDF chủ yếu là text hầu như không nhỏ đi. Có thể ra file lớn hơn nếu PDF đã tối ưu — thông báo hiện cả hai dung lượng.
 
@@ -42,7 +42,8 @@
 - Wayland: pynput không bắt được phím toàn cục → xem PLATFORM.md.
 
 ## Bảo mật
-- File lạ (PDF/Office độc hại) được mở bằng PyMuPDF/LibreOffice trong cùng tiến trình/tiến trình con của người dùng, **chưa sandbox**. Chỉ dùng với file tin cậy. Sandbox chưa làm (chưa có kế hoạch cụ thể).
+- **Office (LibreOffice)**: trên Linux có `bwrap` (bubblewrap) thì chạy trong sandbox: hệ thống chỉ đọc, không mạng, chỉ ghi vào thư mục kết quả tạm + profile. Không có `bwrap` (hoặc userns bị chặn) thì chạy thường; tắt bằng biến môi trường `MAGICHUB_NO_SANDBOX=1`. Windows/macOS chưa có sandbox.
+- **PDF/ảnh** mở bằng PyMuPDF/Pillow trong chính tiến trình MagicHub, **chưa sandbox**. Chỉ dùng với file tin cậy.
 - Mật khẩu chỉ nằm trong bộ nhớ lúc chạy; `history.jsonl` **không lưu tham số**.
 
 ## License

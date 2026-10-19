@@ -34,7 +34,7 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 | Protect | Đặt mật khẩu mở PDF | Mật khẩu 2 lần |
 | Redact | Che đen + xoá thật nội dung khớp từ khoá và/hoặc vùng tự kéo; có bước xem trước | Từ khoá (tuỳ chọn), rồi xem trước: khung cam = khớp, kéo chuột thêm vùng đen |
 | Markup | Trình soạn cho PDF **và ảnh**: Bút, Hình (chữ nhật, elip, đường, mũi tên, tô nền), Chữ (kể cả watermark chéo), Ghi chú, Ảnh (logo/chữ ký), Khung viền | Chọn công cụ, màu, nét; bấm/kéo trên trang. "Mọi trang" áp chữ/ảnh/hình/khung cho cả file. Ctrl+Z hoàn tác, PgUp/PgDn đổi trang |
-| Reorder | Đổi thứ tự/xoá trang PDF (1 file) | Kéo thả ảnh thu nhỏ; chọn + Xoá trang |
+| Reorder | Đổi thứ tự / xoay / xoá trang PDF (1 file) | Kéo thả ảnh thu nhỏ; chọn + Xoay phải/trái hoặc Xoá |
 | Highlight | Tô sáng từ khoá | Từ khoá, màu |
 | Crop | Cắt vùng chọn | Kéo chuột trên bản xem trước trang đầu |
 

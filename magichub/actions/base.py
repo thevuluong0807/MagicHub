@@ -126,6 +126,27 @@ def find_soffice() -> str:
     return exe
 
 
+_BWRAP: list[str] | None = None
+
+
+def sandbox_prefix(writable: list, readonly: list = ()) -> list[str]:
+    """Linux + bubblewrap: hệ thống chỉ đọc, không mạng, chỉ ghi được vào `writable` (+ /tmp riêng).
+    Không có bwrap hoặc không chạy được (userns bị chặn) -> [] (chạy thường)."""
+    global _BWRAP
+    if not sys.platform.startswith("linux") or os.environ.get("MAGICHUB_NO_SANDBOX"):
+        return []
+    if _BWRAP is None:
+        exe = shutil.which("bwrap")
+        ok = exe and subprocess.run([exe, "--ro-bind", "/", "/", "true"], capture_output=True).returncode == 0
+        _BWRAP = [exe] if ok else []
+    if not _BWRAP:
+        return []
+    bind = [x for r in readonly for x in ("--ro-bind", str(r), str(r))]  # sau --tmpfs /tmp để file nguồn trong /tmp vẫn thấy
+    bind += [x for w in writable for x in ("--bind", str(w), str(w))]
+    return [*_BWRAP, "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp", "--tmpfs", "/run", "--setenv", "HOME", "/tmp", *bind,
+            "--unshare-net", "--unshare-pid", "--die-with-parent"]
+
+
 def soffice_convert(src, fmt: str, outdir) -> Path:
     """fmt: 'pdf', 'txt:Text', 'csv', 'pptx'. Trả về file kết quả trong outdir."""
     from ..config import cache_dir
@@ -133,6 +154,7 @@ def soffice_convert(src, fmt: str, outdir) -> Path:
     profile = cache_dir() / "lo-profile"
     cmd = [find_soffice(), f"-env:UserInstallation={profile.as_uri()}", "--headless",
            "--convert-to", fmt, "--outdir", str(outdir), str(src)]
+    cmd = sandbox_prefix([outdir, profile], [Path(src).resolve()]) + cmd  # file Office lạ chạy trong sandbox khi có bwrap
     kw = {"preexec_fn": lambda: os.nice(10)} if os.name == "posix" else {}
     r = subprocess.run(cmd, capture_output=True, timeout=300, **kw)
     out = Path(outdir) / f"{Path(src).stem}.{fmt.split(':')[0]}"

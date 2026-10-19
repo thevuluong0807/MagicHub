@@ -118,6 +118,9 @@ def test_v03(td):
     (o,) = run("organize.reorder", [pdf], order=[2, 0])
     t = pdf_text(o)
     assert len(pymupdf.open(str(o))) == 2 and t.index("page 3") < t.index("page 1") and "page 2" not in t
+    (o,) = run("organize.reorder", [pdf], order=[1, 0], rotate={"0": 90})
+    d = pymupdf.open(str(o))
+    assert d[0].rotation == 0 and d[1].rotation == 90  # trang gốc 0 (giờ ở vị trí 2) bị xoay
     # redact vùng tay: gỡ text dưới vùng, không cần từ khoá
     W, H = pymupdf.open(str(pdf))[0].rect.width, pymupdf.open(str(pdf))[0].rect.height
     (o,) = run("edit.redact", [pdf], rects=[{"page": 0, "x0": 0, "y0": 0.05, "x1": 1, "y1": 0.2}])
@@ -207,6 +210,18 @@ def test_v05(td):
     assert got and "edit.crop" in got["hidden"] and len(got["order"]) == len(__import__("magichub.actions.base", fromlist=["x"]).REGISTRY)
     QTimer.singleShot(400, accept_open)
     assert ask_hotkeys(cfg["hotkeys"]) == cfg["hotkeys"]
+
+
+def test_sandbox(td):
+    import subprocess
+    from magichub.actions.base import sandbox_prefix
+    pre = sandbox_prefix([td])
+    if not pre:
+        return  # không có bwrap: bỏ qua
+    run_ = lambda code: subprocess.run([*pre, sys.executable, "-c", code], capture_output=True).returncode
+    assert run_(f"open({str(td / 'ok.txt')!r}, 'w').write('x')") == 0 and (td / "ok.txt").exists()
+    assert run_(f"open({str(Path.home() / 'magichub_sandbox_probe')!r}, 'w')") != 0  # ngoài vùng cho phép: chỉ đọc
+    assert run_("import socket; socket.create_connection(('1.1.1.1', 80), 2)") != 0  # không mạng
 
 
 def test_convert(td):
@@ -299,7 +314,7 @@ def test_edit(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_convert, test_pdf_table, test_edit):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)

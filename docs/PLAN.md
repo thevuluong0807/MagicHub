@@ -22,6 +22,8 @@ Một thao tác duy nhất (giữ phím + hướng chuột) để chạy convert
 | **v0.4** | Wayland: chạy qua menu file manager (`install-integration`: Nautilus/Nemo/Dolphin) + overlay XWayland; macOS `.app` + `.dmg` (menu bar, ký ad-hoc); Windows installer (Inno Setup: autostart, Send to) | **Xong về code**; Wayland/macOS/Windows **chưa chạy thử** (máy dev là X11). Hotkey toàn cục Wayland (portal GlobalShortcuts) chưa làm: GNOME 42 chưa có |
 | **v0.5** | Menu tuỳ biến (ẩn/hiện/sắp xếp tác vụ) + nhiều phím tắt, mỗi phím mở cả vòng hoặc một nhóm; **Markup** gộp Text + Image + Draw và thêm hình, khung; thứ tự menu mặc định theo mức dùng | **Xong** (test headless; chưa thử chuột thật) |
 
+| v0.6 | Sandbox LibreOffice (bwrap, Linux); Reorder xoay từng trang; sửa CI installer Windows | **Xong** (Linux đã kiểm; CI Windows cần tag mới để xác nhận) |
+
 ## Việc đã kiểm / chưa kiểm
 - Đã kiểm tự động: toàn bộ engine (`tests/test_engine.py`), hình học vòng tròn, đọc selection từ clipboard, luồng hotkey → clipboard → vòng tròn → job (X11).
 - **Chưa kiểm trên máy thật**: Windows, macOS, Wayland. Code đã tính (xem PLATFORM.md) nhưng chưa chạy.

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap, QShortcut
+from PySide6.QtGui import QColor, QFont, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap, QShortcut, QTransform
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog,
                                QHBoxLayout, QInputDialog, QLabel, QListView, QListWidget, QListWidgetItem,
                                QMessageBox, QPushButton, QSpinBox, QVBoxLayout, QWidget)
@@ -374,15 +374,23 @@ def ask_reorder(path) -> dict | None:
     lst.setDragDropMode(QAbstractItemView.InternalMove)
     lst.setSelectionMode(QAbstractItemView.ExtendedSelection)
     lst.setSpacing(8)
+    thumbs = {i: page_image(doc, i, 40) for i in range(len(doc))}
     for i in range(len(doc)):
-        it = QListWidgetItem(QIcon(QPixmap.fromImage(page_image(doc, i, 40))), str(i + 1))
+        it = QListWidgetItem(QIcon(QPixmap.fromImage(thumbs[i])), str(i + 1))
         it.setData(Qt.UserRole, i)
+        it.setData(Qt.UserRole + 1, 0)  # độ xoay thêm
         lst.addItem(it)
     doc.close()
 
     def delete():
         for it in lst.selectedItems():
             lst.takeItem(lst.row(it))
+
+    def rotate(deg):
+        for it in lst.selectedItems():
+            it.setData(Qt.UserRole + 1, (it.data(Qt.UserRole + 1) + deg) % 360)
+            tf = QTransform().rotate(it.data(Qt.UserRole + 1))
+            it.setIcon(QIcon(QPixmap.fromImage(thumbs[it.data(Qt.UserRole)]).transformed(tf, Qt.SmoothTransformation)))
 
     dlg = QDialog()
     dlg.setWindowTitle("Sắp xếp trang")
@@ -392,12 +400,16 @@ def ask_reorder(path) -> dict | None:
     rm.clicked.connect(delete)
     rev = QPushButton("Đảo thứ tự")
     rev.clicked.connect(lambda: [lst.insertItem(0, lst.takeItem(k)) for k in range(1, lst.count())])
+    for text, deg in (("↻ Xoay phải", 90), ("↺ Xoay trái", 270)):
+        b = QPushButton(text)
+        b.clicked.connect(lambda _=False, d=deg: rotate(d))
+        row.addWidget(b)
     row.addWidget(rm)
     row.addWidget(rev)
     row.addStretch()
     lay.addLayout(row)
     lay.addWidget(lst, 1)
-    lay.addWidget(QLabel("Kéo thả để đổi chỗ; chọn rồi bấm Xoá để bỏ trang. Kết quả lưu thành file mới."))
+    lay.addWidget(QLabel("Kéo thả để đổi chỗ; chọn rồi bấm Xoay/Xoá. Kết quả lưu thành file mới."))
     bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
     bb.accepted.connect(dlg.accept)
     bb.rejected.connect(dlg.reject)
@@ -410,4 +422,6 @@ def ask_reorder(path) -> dict | None:
     if not order:
         QMessageBox.warning(None, "Sắp xếp trang", "Phải giữ lại ít nhất một trang")
         return None
-    return {"order": order}
+    rot = {lst.item(k).data(Qt.UserRole): lst.item(k).data(Qt.UserRole + 1) for k in range(lst.count())
+           if lst.item(k).data(Qt.UserRole + 1)}
+    return {"order": order, "rotate": rot}

@@ -25,8 +25,7 @@ jobs:
           case "${{ matrix.name }}" in
             windows)
               pyinstaller --noconfirm --name MagicHub --windowed --collect-submodules magichub --collect-all pdf2docx entry.py
-              (cd dist && 7z a ../MagicHub-windows.zip MagicHub)
-              iscc "/DVersion=$V" packaging/windows/MagicHub.iss ;;
+              (cd dist && 7z a ../MagicHub-windows.zip MagicHub) ;;
             macos)
               bash packaging/macos/build.sh ;;
             linux)
@@ -36,6 +35,17 @@ jobs:
               chmod +x appimagetool
               APPIMAGETOOL="$PWD/appimagetool --appimage-extract-and-run" bash packaging/linux/appimage.sh ;;
           esac
+      - name: Windows installer
+        if: matrix.name == 'windows'
+        continue-on-error: true  # lỗi installer không chặn zip lên Release
+        shell: bash
+        env:
+          MSYS2_ARG_CONV_EXCL: "*"  # Git Bash không được đổi "/DVersion=..." thành đường dẫn
+        run: |
+          V=$(python -c "import magichub; print(magichub.__version__)")
+          ISCC="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+          [ -x "$ISCC" ] || { choco install innosetup -y --no-progress; ISCC="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"; }
+          "$ISCC" "/DVersion=$V" packaging/windows/MagicHub.iss
       - uses: actions/upload-artifact@v4
         with:
           name: MagicHub-${{ matrix.name }}
