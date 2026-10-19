@@ -25,10 +25,10 @@
 |---|---|
 | Redact | Xoá thật (gỡ text/ảnh dưới vùng che), theo từ khoá và/hoặc vùng kéo tay (vùng tay chỉ áp dụng file đầu). Không nhận diện chữ trong ảnh: PDF scan cần OCR trước hoặc kéo vùng tay |
 | Crop PDF | Đặt CropBox (ẩn phần ngoài, **không xoá** nội dung). Chưa phù hợp để giấu thông tin nhạy cảm — dùng Redact |
-| Text/Image | Trang PDF có thuộc tính xoay sẵn có thể đặt lệch hướng. Font Unicode: DejaVu Sans / Arial |
+| Markup: chữ, ảnh, hình, khung | In cứng vào trang (không sửa lại được). Trang PDF có thuộc tính xoay sẵn có thể đặt lệch hướng. Chữ dùng DejaVu Sans (có tiếng Việt). Ảnh: dựng lại qua PDF ở 96 dpi nên giữ đúng kích thước pixel; ảnh JPG lưu chất lượng 92 |
 | Protect | AES-256, một mật khẩu cho cả mở và chủ sở hữu. **Mất mật khẩu = mất file**, không khôi phục được |
 | Word/Excel/PPT | Không có Edit tại chỗ. Hướng đi: convert sang PDF rồi Edit |
-| Draw | Nét vẽ là annotation PDF (sửa được trong trình xem PDF khác); ghi chú là hộp chữ **in cứng vào trang** (hỗ trợ tiếng Việt), không sửa lại được. Chỉ 1 file mỗi lần; cỡ hộp ghi chú ước lượng, chữ dài có thể bị cắt |
+| Markup: bút | Nét vẽ trên PDF là annotation (sửa được trong trình xem PDF khác); trên ảnh được vẽ thẳng vào pixel. Ghi chú: hộp chữ in cứng, cỡ hộp ước lượng, chữ dài có thể bị cắt. Xem trước ở trang đầu của file đầu; chọn nhiều file thì mark áp cho từng file (mark theo trang bỏ qua file ít trang hơn) |
 
 ## Organize
 - Reorder: chỉ 1 PDF; chỉ đổi thứ tự/xoá trang (chưa xoay từng trang).

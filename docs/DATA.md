@@ -62,11 +62,9 @@ Loại file theo phần mở rộng:
 | `organize.pages` | `ranges` như trên, gộp thành 1 PDF |
 | `edit.protect` | `password` |
 | `edit.redact` | `keywords` (tuỳ chọn; xuống dòng/`,`/`;` phân cách), `rects` (tuỳ chọn, chỉ file đầu): `[{page,x0,y0,x1,y1}]` tỉ lệ 0..1 |
-| `edit.annotate` | `marks`: `{type:"ink",page,pts:[[x,y]…],color:[r,g,b],w}` hoặc `{type:"note",page,x,y,text}`; toạ độ 0..1 theo trang |
+| `edit.markup` | `marks`: danh sách; toạ độ 0..1 theo trang; mark có `all:true` áp mọi trang, không thì theo `page`. `ink{pts,color,w}` · `note{x,y,text}` · `text{x,y,text,size,color,rot}` (rot=45: watermark chéo, mờ, (x,y)=tâm) · `image{x,y,w,path}` (w = tỉ lệ bề rộng trang) · `shape{kind:rect\|ellipse\|line\|arrow,x0,y0,x1,y1,color,w,fill}` · `border{color,w,margin}`; `color` = [r,g,b] 0..1 |
 | `organize.reorder` | `order`: chỉ số trang 0-based giữ lại theo thứ tự mới (trang vắng mặt bị xoá) |
 | `edit.highlight` | `keywords`, `color`: Vàng · Xanh lá · Hồng |
-| `edit.text` | `text`, `pos`: Watermark chéo · Trên · Giữa · Dưới, `size` (pt), `color`: Đen · Đỏ · Xanh · Xám |
-| `edit.image` | `image` (đường dẫn), `pos`: Giữa · Trên trái · Trên phải · Dưới trái · Dưới phải, `pct` (% khổ trang) |
 | `edit.crop` | `box`: `(x0, y0, x1, y1)` tỉ lệ 0..1 theo trang/ảnh |
 
 ## history.jsonl
@@ -80,6 +78,6 @@ Mỗi dòng một JSON, chỉ ghi thêm. **Không lưu tham số** (có thể ch
 | Loại | Mẫu |
 |---|---|
 | Convert | `<tên>.<đuôi mới>`; PDF nhiều trang → ảnh: thư mục `<tên>_<png\|jpg>/page_001.png…` |
-| Edit | `<tên>_protected / _redacted / _highlighted / _annotated / _text / _stamped / _cropped` |
+| Edit | `<tên>_protected / _redacted / _highlighted / _marked / _cropped` |
 | Organize | `_merged`, `_rotated`, `_small`, `_reordered`, `_pages`, thư mục `_split/`, `_images/`, `<tên>.zip` (nhiều file: `archive.zip`) |
 | Trùng tên | thêm `_1`, `_2`… |

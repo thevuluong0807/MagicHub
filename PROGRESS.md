@@ -25,7 +25,9 @@ Ghi mọi thay đổi ở đây, mới nhất ở trên.
 - Config `hotkeys` (danh sách, mỗi mục có `group` tuỳ chọn); config cũ `hotkey` tự migrate. `Hotkey.injecting` dùng chung để phím giả lập không kích hoạt tổ hợp khác. `Hub.on_pressed(hk, group)`; vòng một nhóm vào thẳng tác vụ (`Wheel.locked`).
 - `config.menu` {hidden, order} áp dụng trong `actions.available()` (ẩn/sắp xếp; CLI `do` không bị ảnh hưởng).
 - `settings.py`: `ask_hotkeys`, `ask_menu`; menu khay "Phím tắt…" và "Tuỳ chỉnh menu…". Test `test_v05` (migrate, ẩn/sắp xếp, hộp thoại offscreen).
-- Chưa tag v0.5.0.
+- Gộp Text + Image + Draw thành `edit.markup` (label Markup, PDF và ảnh): bút, hình (rect/elip/đường/mũi tên, tô nền), chữ (+watermark chéo), ghi chú, ảnh, khung viền, "Mọi trang". Bỏ `edit.text`/`edit.image`/`edit.annotate` (CLI `do` cũ đổi sang `edit.markup`). Ảnh đi qua PDF tạm 96 dpi để dùng chung engine. Xem trước canvas khớp output (đã so ảnh).
+- Thanh công cụ Markup chỉ hiện tuỳ chọn liên quan công cụ; Ctrl+Z, PgUp/PgDn. Thứ tự menu mặc định theo mức dùng (`DEFAULT_ORDER` trong `actions/__init__.py`).
+- Bẫy: thuộc tính `width` trên QWidget là hàm; không đặt đè (dùng `stroke`).
 
 ## 2026-10-19 — v0.4.0
 - `integrate.py` + CLI `install-integration [--remove]`: autostart, Nautilus script, Nemo action, Dolphin service menu; Windows SendTo/Startup `.cmd`; macOS LaunchAgent. Test Linux trong `test_integrate`.

@@ -15,8 +15,8 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 
 | Loại | Convert | Edit | Organize |
 |---|---|---|---|
-| **PDF** | DOCX, XLSX, PPTX, PNG, JPG, TXT, OCR | Protect, Redact, Highlight, Draw, Text, Image, Crop | Merge (≥2), Split, ↻90°, ↺90°, Compress, Reorder, Pages, Images, Zip |
-| **Ảnh** (png jpg webp bmp tiff gif) | PNG, JPG, WEBP, BMP, PDF (trừ định dạng hiện có) | Text, Image, Crop | Merge→PDF (≥2), ↻90°, ↺90°, Compress, Zip |
+| **PDF** | DOCX, XLSX, PPTX, PNG, JPG, TXT, OCR | Markup, Highlight, Redact, Crop, Protect | Merge (≥2), Split, ↻90°, ↺90°, Compress, Reorder, Pages, Images, Zip |
+| **Ảnh** (png jpg webp bmp tiff gif) | PNG, JPG, WEBP, BMP, PDF (trừ định dạng hiện có) | Markup, Crop | Merge→PDF (≥2), ↻90°, ↺90°, Compress, Zip |
 | **Word** (docx doc odt rtf) | PDF, TXT, PNG, JPG | — | Zip |
 | **Excel** (xlsx xls ods csv) | PDF, CSV, PNG | — | Zip |
 | **PowerPoint** (pptx ppt odp) | PDF, PNG, JPG, TXT | — | Zip |
@@ -33,11 +33,9 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 | OCR | PDF scan → PDF chọn/copy được chữ (cần Tesseract) | — |
 | Protect | Đặt mật khẩu mở PDF | Mật khẩu 2 lần |
 | Redact | Che đen + xoá thật nội dung khớp từ khoá và/hoặc vùng tự kéo; có bước xem trước | Từ khoá (tuỳ chọn), rồi xem trước: khung cam = khớp, kéo chuột thêm vùng đen |
-| Draw | Vẽ tay + ghi chú vàng lên PDF (1 file) | Trình xem: Bút/Ghi chú, màu, ◀ ▶ đổi trang, Hoàn tác |
+| Markup | Trình soạn cho PDF **và ảnh**: Bút, Hình (chữ nhật, elip, đường, mũi tên, tô nền), Chữ (kể cả watermark chéo), Ghi chú, Ảnh (logo/chữ ký), Khung viền | Chọn công cụ, màu, nét; bấm/kéo trên trang. "Mọi trang" áp chữ/ảnh/hình/khung cho cả file. Ctrl+Z hoàn tác, PgUp/PgDn đổi trang |
 | Reorder | Đổi thứ tự/xoá trang PDF (1 file) | Kéo thả ảnh thu nhỏ; chọn + Xoá trang |
 | Highlight | Tô sáng từ khoá | Từ khoá, màu |
-| Text | Chữ/watermark lên mọi trang | Nội dung, vị trí, cỡ, màu |
-| Image | Logo/chữ ký/tem lên mọi trang | File ảnh, vị trí, % rộng |
 | Crop | Cắt vùng chọn | Kéo chuột trên bản xem trước trang đầu |
 
 ## Dòng lệnh

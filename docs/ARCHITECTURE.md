@@ -8,7 +8,7 @@ magichub/
   wheel.py          Widget vòng tròn (QPainter, đa giác bo góc), timer đọc chuột, đổi nhóm↔tác vụ tại chỗ
   geometry.py       Toán thuần: ring_hit(dx,dy,n) → (ô, bán kính)   ← có test, không Qt
   dialogs.py        ask_form (form tham số) + ask_crop (chọn vùng) + ask_hotkey
-  viewer.py         Trình xem PDF nhỏ: PageCanvas (vẽ/ghi chú/vùng), ask_annotate, ask_redact (xem trước), ask_reorder
+  viewer.py         Trình xem PDF nhỏ: PageCanvas (bút/hình/chữ/ghi chú/ảnh/khung/vùng), ask_markup, ask_redact (xem trước), ask_reorder
   config.py         Đường dẫn dữ liệu theo OS + config.json + is_wayland()
   settings.py       ask_hotkeys (danh sách phím tắt + nhóm) và ask_menu (ẩn/sắp xếp tác vụ)
   integrate.py      install-integration: autostart + menu file manager (Nautilus/Nemo/Dolphin, Windows SendTo, macOS LaunchAgent)
@@ -16,7 +16,7 @@ magichub/
     base.py         Action, REGISTRY, helper (unique, out_path, parse_ranges, soffice, font, PDF)
     convert.py      bảng TARGETS → đăng ký convert.<kind>.<to>
     organize.py     merge, split, rotate, compress, reorder, pages, images, zip
-    edit.py         protect, redact, highlight, annotate (Draw), text, image, crop
+    edit.py         protect, redact, highlight, markup (vẽ/hình/khung/chữ/ảnh/ghi chú), crop
     __init__.py     available(files), by_id(id)
 tests/test_engine.py  assert-based, không cần display
 ```

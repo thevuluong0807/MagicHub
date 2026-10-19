@@ -107,11 +107,11 @@ def test_v03(td):
     pdf = make_pdf(td / "v.pdf", pages=3)
     marks = [{"type": "ink", "page": 0, "pts": [[0.1, 0.1], [0.5, 0.3], [0.8, 0.2]], "color": [1, 0, 0], "w": 2},
              {"type": "note", "page": 1, "x": 0.2, "y": 0.4, "text": "Kiểm tra lại số liệu\ndòng hai"}]
-    (o,) = run("edit.annotate", [pdf], marks=marks)
+    (o,) = run("edit.markup", [pdf], marks=marks)
     d = pymupdf.open(str(o))
     assert len(list(d[0].annots())) == 1 and "Kiểm tra" in d[1].get_text()
     try:
-        run("edit.annotate", [pdf], marks=[])
+        run("edit.markup", [pdf], marks=[])
         assert False
     except ValueError:
         pass
@@ -145,6 +145,21 @@ def test_v03(td):
     cv.mouseReleaseEvent(ev(QEvent.MouseButtonRelease, cx + 100, cy + 100))
     assert cv.marks[0]["type"] == "rect" and cv.marks[0]["x1"] > cv.marks[0]["x0"]
     cv.grab()  # vẽ không crash
+    # mọi loại mark: bấm/kéo trên canvas -> mark đúng loại; vẽ lại không crash
+    cv.marks.clear()
+    cv.tool, cv.shape = "shape", "arrow"
+    cv.mousePressEvent(ev(QEvent.MouseButtonPress, cx - 40, cy))
+    cv.mouseReleaseEvent(ev(QEvent.MouseButtonRelease, cx + 40, cy + 30))
+    assert cv.marks[-1]["kind"] == "arrow" and cv.marks[-1]["x1"] > cv.marks[-1]["x0"]
+    cv.all_pages, cv.stroke = True, 3.0
+    cv.add_border()
+    assert cv.marks[-1] == {"type": "border", "all": True, "color": cv._rgb(), "w": 3.0}
+    cv.marks.append({"type": "text", "all": True, "x": 0.5, "y": 0.5, "text": "WM", "size": 30, "color": [1, 0, 0], "rot": 45})
+    cv.marks.append({"type": "shape", "page": 0, "kind": "ellipse", "x0": .1, "y0": .1, "x1": .3, "y1": .2, "color": [0, 0, 1], "w": 2, "fill": True})
+    cv.grab().save(str(td / "canvas.png"))
+    # preview và PDF dùng chung engine: marks của canvas áp được vào PDF
+    (o,) = run("edit.markup", [pdf], marks=cv.marks)
+    assert "WM" in pymupdf.open(str(o))[2].get_text()
 
 
 def test_integrate(td):
@@ -248,12 +263,22 @@ def test_edit(td):
         pass
     (o,) = run("edit.highlight", [pdf], keywords="Hello", color="Vàng")
     assert any(True for _ in pymupdf.open(str(o))[0].annots())
-    (o,) = run("edit.text", [pdf], text="BẢN NHÁP", pos="Watermark chéo", size=40, color="Đỏ")
-    assert "BẢN NHÁP" in pdf_text(o)
     stamp = td / "stamp.png"
     Image.new("RGBA", (100, 50), (0, 128, 0, 255)).save(stamp)
-    (o,) = run("edit.image", [pdf], image=str(stamp), pos="Dưới phải", pct=20)
-    assert len(pymupdf.open(str(o))[0].get_images()) == 1
+    marks = [
+        {"type": "text", "all": True, "x": 0.5, "y": 0.5, "text": "BẢN NHÁP", "size": 40, "color": [0.85, 0.1, 0.1], "rot": 45},
+        {"type": "text", "page": 0, "x": 0.1, "y": 0.2, "text": "Dòng một\nDòng hai", "size": 16, "color": [0, 0, 0]},
+        {"type": "image", "all": True, "x": 0.7, "y": 0.9, "w": 0.2, "path": str(stamp)},
+        {"type": "shape", "page": 0, "kind": "rect", "x0": 0.1, "y0": 0.3, "x1": 0.4, "y1": 0.4, "color": [0, 0, 1], "w": 2, "fill": True},
+        {"type": "shape", "page": 0, "kind": "ellipse", "x0": 0.5, "y0": 0.3, "x1": 0.8, "y1": 0.4, "color": [0, 0, 1], "w": 2},
+        {"type": "shape", "page": 0, "kind": "arrow", "x0": 0.1, "y0": 0.5, "x1": 0.4, "y1": 0.6, "color": [1, 0, 0], "w": 2},
+        {"type": "border", "all": True, "color": [0, 0, 0], "w": 3}]
+    (o,) = run("edit.markup", [pdf], marks=marks)
+    d = pymupdf.open(str(o))
+    assert all("BẢN NHÁP" in pg.get_text() and len(pg.get_images()) == 1 for pg in d) and "Dòng hai" in d[0].get_text()
+    assert "Dòng hai" not in d[1].get_text()
+    assert len(d[0].get_drawings()) > len(d[1].get_drawings()) > 0
+    d[0].get_pixmap(dpi=60).save(str(td / "markup.png"))
     (o,) = run("edit.crop", [pdf], box=(0.1, 0.1, 0.6, 0.5))
     r = pymupdf.open(str(o))[0].rect
     assert abs(r.width - 595 * 0.5) < 3 and abs(r.height - 842 * 0.4) < 3, r
@@ -261,8 +286,15 @@ def test_edit(td):
     Image.new("RGB", (200, 100), "white").save(png)
     (o,) = run("edit.crop", [png], box=(0, 0, 0.5, 0.5))
     assert Image.open(o).size == (100, 50)
-    (o,) = run("edit.text", [png], text="Hi", pos="Giữa", size=40, color="Xanh")
-    (o,) = run("edit.image", [png], image=str(stamp), pos="Trên trái", pct=30)
+    big = td / "big.png"
+    Image.new("RGB", (400, 300), "white").save(big)
+    (o,) = run("edit.markup", [big], marks=[
+        {"type": "text", "page": 0, "x": 0.1, "y": 0.1, "text": "Hi", "size": 30, "color": [0, 0, 1]},
+        {"type": "border", "page": 0, "color": [1, 0, 0], "w": 4}])
+    im = Image.open(o).convert("RGB")
+    assert im.size == (400, 300) and o.suffix == ".png"
+    assert any(im.getpixel((200, y))[0] > 200 and im.getpixel((200, y))[1] < 60 for y in range(30))  # khung đỏ ở mép trên
+    assert im.getpixel((200, 150)) == (255, 255, 255)
 
 
 if __name__ == "__main__":

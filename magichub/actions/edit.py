@@ -1,18 +1,17 @@
 """Nhóm Edit cho PDF và ảnh. Word/Excel/PowerPoint không chỉnh tại chỗ (xem docs/CONSTRAINTS.md)."""
 from __future__ import annotations
 
+import math
 import re
 
 import pymupdf
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageOps
 
-from .base import action, find_font, kind_of, open_pdf, out_path, save_pdf
+from .base import action, find_font, kind_of, open_pdf, out_path, save_pdf, tmpdir
+from .convert import images_to_pdf
 
 PDF, PI = ("pdf",), ("pdf", "img")
-COLORS = {"Đen": (0, 0, 0), "Đỏ": (0.85, 0.1, 0.1), "Xanh": (0.1, 0.3, 0.85), "Xám": (0.45, 0.45, 0.45)}
 HL = {"Vàng": (1, 1, 0), "Xanh lá": (0.55, 1, 0.55), "Hồng": (1, 0.65, 0.85)}
-TEXT_POS = ["Watermark chéo", "Trên", "Giữa", "Dưới"]
-IMG_POS = ["Giữa", "Trên trái", "Trên phải", "Dưới trái", "Dưới phải"]
 
 
 def _form(title, fields):
@@ -71,7 +70,7 @@ def redact(files, p):
     return outs
 
 
-# ---------- Annotate (vẽ tay + ghi chú) ----------
+# ---------- Markup: vẽ, hình, khung, chữ/watermark, ảnh, ghi chú ----------
 NOTE_FS, NOTE_W = 11, 0.35  # cỡ chữ ghi chú (pt), bề rộng hộp (tỉ lệ khổ trang)
 
 
@@ -82,34 +81,105 @@ def note_box(text: str, W: float, H: float, x: float, y: float) -> pymupdf.Rect:
     return pymupdf.Rect(x * W, y * H, x * W + bw, min(y * H + lines * NOTE_FS * 1.4 + 8, H - 2))
 
 
-def _ask_annotate(files):
-    from ..viewer import ask_annotate
+def arrow_head(a, b, w):
+    """Hai điểm cánh mũi tên tại b cho đoạn a->b (a, b: (x, y)); dùng chung cho xem trước và PDF."""
+    ang, L = math.atan2(b[1] - a[1], b[0] - a[0]), max(9, 4 * w)
+    return [(b[0] - L * math.cos(ang - s * 0.45), b[1] - L * math.sin(ang - s * 0.45)) for s in (1, -1)]
 
-    return ask_annotate(files[0])
+
+def _draw_mark(page, m, font):
+    W, H = page.rect.width, page.rect.height
+    t, col, w = m["type"], tuple(m.get("color", (0.85, 0.1, 0.1))), m.get("w", 2)
+    P = pymupdf.Point
+    if t == "ink":
+        a = page.add_ink_annot([[(x * W, y * H) for x, y in m["pts"]]])
+        a.set_colors(stroke=col)
+        a.set_border(width=w)
+        a.update()
+    elif t == "note":
+        r = note_box(m["text"], W, H, m["x"], m["y"])
+        page.draw_rect(r, color=(0.8, 0.6, 0), fill=(1, 0.95, 0.6), width=0.8)
+        page.insert_textbox(r + (4, 3, -4, -2), m["text"], fontsize=NOTE_FS, fontname="dj", fontfile=font)
+    elif t == "shape":
+        a, b = (m["x0"] * W, m["y0"] * H), (m["x1"] * W, m["y1"] * H)
+        r = pymupdf.Rect(min(a[0], b[0]), min(a[1], b[1]), max(a[0], b[0]), max(a[1], b[1]))
+        fill = dict(fill=col, fill_opacity=0.25) if m.get("fill") else {}
+        if m["kind"] == "rect":
+            page.draw_rect(r, color=col, width=w, **fill)
+        elif m["kind"] == "ellipse":
+            page.draw_oval(r, color=col, width=w, **fill)
+        else:
+            page.draw_line(P(*a), P(*b), color=col, width=w)
+            if m["kind"] == "arrow":
+                for h in arrow_head(a, b, w):
+                    page.draw_line(P(*b), P(*h), color=col, width=w)
+    elif t == "border":
+        inset = w / 2 + m.get("margin", 10)
+        page.draw_rect(page.rect + (inset, inset, -inset, -inset), color=col, width=w)
+    elif t == "text":
+        f, size, rot = pymupdf.Font(fontfile=font), m.get("size", 24), m.get("rot", 0)
+        lines = m["text"].split("\n")
+        tw = pymupdf.TextWriter(page.rect)
+        cx, cy = m["x"] * W, m["y"] * H  # rot=0: góc trên-trái; rot!=0: tâm (watermark)
+        for i, line in enumerate(lines):
+            if rot:
+                tw.append((cx - f.text_length(line, size) / 2, cy + size / 3 + (i - (len(lines) - 1) / 2) * size * 1.25),
+                          line, font=f, fontsize=size)
+            else:
+                tw.append((cx, cy + size * (1 + 1.25 * i)), line, font=f, fontsize=size)
+        tw.write_text(page, color=col, opacity=m.get("opacity", 0.35 if rot else 1),
+                      morph=(P(cx, cy), pymupdf.Matrix(rot)) if rot else None)
+    elif t == "image":
+        with Image.open(m["path"]) as im:
+            iw, ih = im.size
+        w_ = m["w"] * W
+        page.insert_image(pymupdf.Rect(m["x"] * W, m["y"] * H, m["x"] * W + w_, m["y"] * H + w_ * ih / iw),
+                          filename=m["path"], overlay=True)
 
 
-@action("edit.annotate", "edit", "Draw", "Vẽ tay và ghi chú lên PDF bằng trình xem nhỏ", kinds=PDF,
-        ask=_ask_annotate, check=lambda files: len(files) == 1)
-def annotate(files, p):
-    """params.marks: {type:ink,page,pts:[[x,y]..],color:[r,g,b],w} | {type:note,page,x,y,text}; toạ độ 0..1 theo trang."""
+def apply_marks(doc, marks) -> int:
+    """Vẽ marks lên doc; mark có all=True áp mọi trang, ngược lại theo `page`. Trả số mark đã vẽ."""
+    font, n = find_font(), 0
+    for i, page in enumerate(doc):
+        for m in marks:
+            if m.get("all") or m.get("page") == i:
+                _draw_mark(page, m, font)
+                n += 1
+    return n
+
+
+def _ask_markup(files):
+    from ..viewer import ask_markup
+
+    return ask_markup(files[0])
+
+
+@action("edit.markup", "edit", "Markup", "Vẽ tay, hình, khung, chữ/watermark, ảnh/chữ ký, ghi chú lên PDF hoặc ảnh",
+        kinds=PI, ask=_ask_markup)
+def markup(files, p):
+    """params.marks (toạ độ 0..1 theo trang; all=True: mọi trang; nhiều file: áp dụng cho từng file):
+    ink{pts,color,w} · note{x,y,text} · text{x,y,text,size,color,rot} · image{x,y,w,path} ·
+    shape{kind:rect|ellipse|line|arrow,x0,y0,x1,y1,color,w,fill} · border{color,w,margin}."""
     marks = p.get("marks", [])
     if not marks:
-        raise ValueError("Chưa vẽ hay ghi chú gì")
-    doc = open_pdf(files[0])
-    font = find_font()
-    for m in marks:
-        page = doc[m["page"]]
-        W, H = page.rect.width, page.rect.height
-        if m["type"] == "ink":
-            a = page.add_ink_annot([[(x * W, y * H) for x, y in m["pts"]]])
-            a.set_colors(stroke=tuple(m.get("color", (0.85, 0.1, 0.1))))
-            a.set_border(width=m.get("w", 2))
-            a.update()
-        else:
-            r = note_box(m["text"], W, H, m["x"], m["y"])
-            page.draw_rect(r, color=(0.8, 0.6, 0), fill=(1, 0.95, 0.6), width=0.8)
-            page.insert_textbox(r + (4, 3, -4, -2), m["text"], fontsize=NOTE_FS, fontname="dj", fontfile=font)
-    return [save_pdf(doc, out_path(files[0], "annotated"))]
+        raise ValueError("Chưa thêm gì để vẽ")
+    outs = []
+    for f in files:
+        if kind_of(f) == "pdf":
+            doc = open_pdf(f)
+            apply_marks(doc, marks)
+            outs.append(save_pdf(doc, out_path(f, "marked")))
+            continue
+        out = out_path(f, "marked")  # ảnh: dựng tạm thành PDF 1 trang (1 px = 0,75 pt) rồi dựng lại ở 96 dpi = đúng kích thước gốc
+        with tmpdir() as td:
+            doc = pymupdf.open(str(images_to_pdf([f], td / "i.pdf")))
+            apply_marks(doc, marks)
+            pix = doc[0].get_pixmap(dpi=96, alpha=False)
+            doc.close()
+        im = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+        im.save(out, quality=92) if out.suffix.lower() in (".jpg", ".jpeg") else im.save(out)
+        outs.append(out)
+    return outs
 
 
 # ---------- Highlight ----------
@@ -133,89 +203,6 @@ def highlight(files, p):
             outs.append(save_pdf(doc, out_path(f, "highlighted")))
     if not outs:
         raise ValueError("Không tìm thấy từ khoá nào trong PDF")
-    return outs
-
-
-# ---------- Add text ----------
-def _text_xy(W, H, w, size, pos):
-    return {"Trên": (W / 2 - w / 2, size * 1.5), "Dưới": (W / 2 - w / 2, H - size),
-            "Giữa": (W / 2 - w / 2, H / 2 + size / 3)}.get(pos, (W / 2 - w / 2, H / 2 + size / 3))
-
-
-@action("edit.text", "edit", "Text", "Thêm chữ / watermark vào PDF hoặc ảnh", kinds=PI,
-        ask=_form("Thêm chữ", [
-            {"name": "text", "label": "Nội dung", "type": "text", "required": True},
-            {"name": "pos", "label": "Vị trí", "type": "choice", "choices": TEXT_POS},
-            {"name": "size", "label": "Cỡ chữ", "type": "int", "default": 48, "min": 6, "max": 400},
-            {"name": "color", "label": "Màu", "type": "choice", "choices": list(COLORS)}]))
-def add_text(files, p):
-    text, pos, size = p["text"], p.get("pos", TEXT_POS[0]), int(p.get("size", 48))
-    rgb = COLORS[p.get("color", "Đỏ")]
-    diag = pos == TEXT_POS[0]
-    outs = []
-    for f in files:
-        out = out_path(f, "text")
-        if kind_of(f) == "pdf":
-            font, doc = pymupdf.Font(fontfile=find_font()), open_pdf(f)
-            for page in doc:
-                W, H = page.rect.width, page.rect.height
-                x, y = _text_xy(W, H, font.text_length(text, size), size, pos)
-                tw = pymupdf.TextWriter(page.rect)
-                tw.append((x, y), text, font=font, fontsize=size)
-                tw.write_text(page, color=rgb, opacity=0.35 if diag else 1,
-                              morph=(pymupdf.Point(W / 2, H / 2), pymupdf.Matrix(45)) if diag else None)
-            outs.append(save_pdf(doc, out))
-        else:
-            im = ImageOps.exif_transpose(Image.open(f)).convert("RGBA")
-            px = max(10, int(size * im.width / 800))
-            font = ImageFont.truetype(find_font(), px)
-            w = int(font.getlength(text))
-            layer = Image.new("RGBA", (w + 20, px * 2), (0, 0, 0, 0))
-            ImageDraw.Draw(layer).text((10, px // 2), text, font=font,
-                                       fill=tuple(int(c * 255) for c in rgb) + (90 if diag else 255,))
-            if diag:
-                layer = layer.rotate(45, expand=True)
-            y = {"Trên": 10, "Dưới": im.height - layer.height - 10}.get(pos, (im.height - layer.height) / 2)
-            im.alpha_composite(layer, (max(0, int((im.width - layer.width) / 2)), max(0, int(y))))
-            im.convert("RGB").save(out) if out.suffix.lower() in (".jpg", ".jpeg") else im.save(out)
-            outs.append(out)
-    return outs
-
-
-# ---------- Add image ----------
-def _img_rect(W, H, w, h, pos, m=20):
-    x = {"Trên trái": m, "Dưới trái": m, "Trên phải": W - w - m, "Dưới phải": W - w - m}.get(pos, (W - w) / 2)
-    y = {"Trên trái": m, "Trên phải": m, "Dưới trái": H - h - m, "Dưới phải": H - h - m}.get(pos, (H - h) / 2)
-    return x, y
-
-
-@action("edit.image", "edit", "Image", "Chèn logo/ảnh (chữ ký, tem) vào PDF hoặc ảnh", kinds=PI,
-        ask=_form("Chèn ảnh", [
-            {"name": "image", "label": "File ảnh", "type": "file", "required": True},
-            {"name": "pos", "label": "Vị trí", "type": "choice", "choices": IMG_POS},
-            {"name": "pct", "label": "Rộng (% khổ trang)", "type": "int", "default": 25, "min": 3, "max": 100}]))
-def add_image(files, p):
-    stamp, pos, pct = Image.open(p["image"]).convert("RGBA"), p.get("pos", "Giữa"), int(p.get("pct", 25))
-    outs = []
-    for f in files:
-        out = out_path(f, "stamped")
-        if kind_of(f) == "pdf":
-            doc = open_pdf(f)
-            for page in doc:
-                W, H = page.rect.width, page.rect.height
-                w = W * pct / 100
-                h = w * stamp.height / stamp.width
-                x, y = _img_rect(W, H, w, h, pos)
-                page.insert_image(pymupdf.Rect(x, y, x + w, y + h), filename=p["image"], overlay=True)
-            outs.append(save_pdf(doc, out))
-        else:
-            im = ImageOps.exif_transpose(Image.open(f)).convert("RGBA")
-            w = int(im.width * pct / 100)
-            s = stamp.resize((w, int(w * stamp.height / stamp.width)))
-            x, y = _img_rect(im.width, im.height, s.width, s.height, pos)
-            im.alpha_composite(s, (max(0, int(x)), max(0, int(y))))
-            im.convert("RGB").save(out) if out.suffix.lower() in (".jpg", ".jpeg") else im.save(out)
-            outs.append(out)
     return outs
 
 

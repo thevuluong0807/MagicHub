@@ -2,9 +2,15 @@ from . import convert, edit, organize  # noqa: F401  (import để đăng ký ac
 from .base import GROUPS, REGISTRY
 
 
+# thứ tự hiển thị mặc định (id không liệt kê giữ thứ tự đăng ký, xếp sau)
+DEFAULT_ORDER = ["edit.markup", "edit.highlight", "edit.redact", "edit.crop", "edit.protect",
+                 "organize.merge", "organize.split", "organize.compress", "organize.reorder", "organize.pages",
+                 "organize.rotate_cw", "organize.rotate_ccw", "organize.images", "organize.zip"]
+
+
 def ordered(acts, order):
     """Sắp theo `order` (danh sách id); id không có trong order giữ thứ tự đăng ký, xếp sau."""
-    pos = {a: i for i, a in enumerate(order)}
+    pos = {a: i for i, a in enumerate(list(order) + [d for d in DEFAULT_ORDER if d not in order])}
     return sorted(acts, key=lambda a: pos.get(a.id, len(pos)))  # sorted ổn định
 
 
