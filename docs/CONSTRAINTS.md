@@ -12,10 +12,11 @@
 | Word/Excel/PPT → PDF | Tốt | LibreOffice; font lạ có thể bị thay |
 | Mọi thứ → PNG/JPG (qua PDF) | Tốt | 150 dpi; nhiều trang → thư mục `page_001…` |
 | Ảnh ↔ ảnh, ảnh → PDF | Tốt | JPG/BMP mất kênh trong suốt (nền trắng); không hỗ trợ HEIC |
-| PDF → TXT | Tốt với PDF có text | PDF scan ra rỗng (cần OCR, v0.2) |
+| PDF → TXT | Tốt với PDF có text | PDF scan ra rỗng → dùng Convert → OCR trước |
 | PDF → DOCX | Trung bình | `pdf2docx`; bố cục phức tạp/nhiều cột có thể vỡ |
 | PDF → XLSX | Trung bình | Chỉ bảng có đường kẻ/căn hàng rõ; mỗi bảng 1 sheet `P<trang>_T<bảng>`; không có bảng → lỗi |
 | PDF → PPTX | Thấp | Mỗi trang = 1 slide chứa **ảnh** (không sửa chữ được) |
+| PDF → OCR | Chưa kiểm | Cần cài Tesseract (`apt install tesseract-ocr tesseract-ocr-vie`); chỉ hiện khi tìm thấy `tesseract`; 200 dpi/trang, chậm với PDF dài |
 | Excel → CSV | Chỉ sheet đầu | Hành vi mặc định của LibreOffice |
 | PPT/ODP → TXT | Trung bình | Qua PPTX, lấy text khung chữ |
 
@@ -31,8 +32,7 @@
 
 ## Organize
 - Merge sắp xếp **theo tên file (tự nhiên)**, không theo thứ tự chọn, vì file manager không đảm bảo thứ tự clipboard.
-- Compress PDF: giảm ảnh xuống ~110 dpi, chất lượng JPEG 65. PDF chủ yếu là text hầu như không nhỏ đi. Có thể ra file lớn hơn nếu PDF đã tối ưu — thông báo hiện cả hai dung lượng.
-- Compress ảnh: cạnh dài tối đa 2560 px; JPG/WebP chất lượng 72.
+- Compress: 3 mức. PDF: Nhẹ 150 dpi/Q80 · Vừa 110/Q65 · Mạnh 72/Q45; ảnh: cạnh dài tối đa 3200/2560/1600 px. PDF chủ yếu là text hầu như không nhỏ đi. Có thể ra file lớn hơn nếu PDF đã tối ưu — thông báo hiện cả hai dung lượng.
 
 ## Hotkey và lấy file chọn
 - Dựa vào Ctrl+C giả lập: **ghi đè clipboard trong ~0,2 s** (text được khôi phục; nội dung khác như ảnh/file đã copy trước đó thì mất).

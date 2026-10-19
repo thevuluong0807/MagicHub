@@ -13,8 +13,9 @@ Mức hỗ trợ: ✅ đã chạy thử · 🟡 viết theo tài liệu, **chưa
 ## Cài chung
 1. Python ≥ 3.10.
 2. `python -m venv .venv` → cài `requirements.txt`.
-3. Cài **LibreOffice** (chỉ cần cho convert Office): Linux `apt install libreoffice`; Windows/macOS tải từ libreoffice.org. Tool tự tìm `soffice` trong PATH và các thư mục cài mặc định.
-4. Chạy `run.sh` (Linux/macOS) hoặc `run.bat` (Windows).
+3. (Tuỳ chọn) **Tesseract** cho OCR: Linux `apt install tesseract-ocr tesseract-ocr-vie`; Windows/macOS tải/`brew install tesseract`. Phải nằm trong PATH.
+4. Cài **LibreOffice** (chỉ cần cho convert Office): Linux `apt install libreoffice`; Windows/macOS tải từ libreoffice.org. Tool tự tìm `soffice` trong PATH và các thư mục cài mặc định.
+5. Chạy `run.sh` (Linux/macOS) hoặc `run.bat` (Windows).
 
 ## Linux
 - Kiểm tra phiên: `echo $XDG_SESSION_TYPE`. `x11` → dùng hotkey bình thường.

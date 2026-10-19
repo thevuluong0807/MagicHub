@@ -10,14 +10,16 @@
 ## config.json
 Tạo tự động lần chạy đầu; thiếu khoá → dùng mặc định; file hỏng → bỏ qua (không ghi đè).
 ```json
-{ "hotkey": { "modifiers": ["ctrl", "alt", "shift"], "key": "" } }
+{ "hotkey": { "modifiers": ["ctrl", "alt", "shift"], "key": "" }, "output_dir": null }
 ```
 | Khoá | Giá trị | Ghi chú |
 |---|---|---|
 | `hotkey.modifiers` | tập con của `ctrl`, `alt`, `shift`, `cmd` | Phải giữ đủ các phím này |
 | `hotkey.key` | một ký tự hoặc tên phím pynput (`space`, `f9`…) | Phím "giữ" chính; nhả bất kỳ phím nào của tổ hợp = xác nhận |
 
-Đổi config cần khởi động lại daemon.
+`hotkey` và `output_dir` đổi được ngay từ menu khay (Đổi phím tắt… / Thư mục kết quả…).
+
+| `output_dir` | đường dẫn thư mục hoặc `null` | `null` = kết quả cạnh file gốc; đặt thì mọi kết quả vào thư mục đó (thư mục phải tồn tại, không thì quay về cạnh file gốc) |
 
 ## Action (registry, trong code — `actions/base.py`)
 | Trường | Kiểu | Ý nghĩa |
@@ -38,7 +40,7 @@ Loại file theo phần mở rộng:
 ## Bảng đích Convert (`convert.py: TARGETS`)
 | Nguồn | Đích |
 |---|---|
-| pdf | docx, xlsx, pptx, png, jpg, txt |
+| pdf | docx, xlsx, pptx, png, jpg, txt, ocr (chỉ khi có Tesseract) |
 | doc | pdf, txt, png, jpg |
 | xls | pdf, csv, png |
 | ppt | pdf, png, jpg, txt |
@@ -49,6 +51,7 @@ Loại file theo phần mở rộng:
 | id | params |
 |---|---|
 | `organize.split` | `ranges`: `""` = từng trang; `"1-3,5"` = mỗi nhóm một file; `"7-"` = từ 7 đến hết |
+| `organize.compress` | `level`: Nhẹ (giữ nét) · Vừa · Mạnh |
 | `organize.pages` | `ranges` như trên, gộp thành 1 PDF |
 | `edit.protect` | `password` |
 | `edit.redact` | `keywords` (xuống dòng/`,`/`;` phân cách) |

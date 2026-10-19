@@ -1,9 +1,13 @@
 """Chạy: .venv/bin/python tests/test_engine.py  (cần LibreOffice cho phần Office; không cần display)."""
+import json
+import os
 import sys
 import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp()  # config riêng cho test, không đụng config thật
 
 import pymupdf
 from PIL import Image
@@ -71,6 +75,31 @@ def test_organize(td):
     assert Image.open(o).size == (50, 100)
     (o,) = run("organize.merge", [pdf, png])
     assert len(pymupdf.open(str(o))) == 4
+
+
+def test_options(td):
+    big = Image.effect_noise((1600, 1200), 80).convert("RGB")
+    jpg = td / "n.jpg"
+    big.save(jpg, quality=95)
+    (a,), (b,) = run("organize.compress", [jpg], level="Nhẹ (giữ nét)"), run("organize.compress", [jpg], level="Mạnh")
+    assert b.stat().st_size < a.stat().st_size and max(Image.open(b).size) <= 1600
+    # output_dir: kết quả vào thư mục đích, không đụng file gốc
+    dest = td / "out"
+    dest.mkdir()
+    from magichub import config
+    cfg = config.load()
+    cfg["output_dir"] = str(dest)
+    config.save(cfg)
+    (o,) = run("organize.compress", [jpg])
+    assert o.parent == dest and jpg.exists()
+    cfg["output_dir"] = None
+    config.save(cfg)
+    (o,) = run("organize.compress", [jpg])
+    assert o.parent == td
+    # OCR chỉ hiện khi có tesseract
+    import shutil
+    pdf = make_pdf(td / "o.pdf")
+    assert ("convert.pdf.ocr" in [a.id for _, _, acts in available([pdf]) for a in acts]) == (shutil.which("tesseract") is not None)
 
 
 def test_convert(td):
@@ -146,7 +175,7 @@ def test_edit(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_convert, test_pdf_table, test_edit):
+    for t in (test_available, test_organize, test_options, test_convert, test_pdf_table, test_edit):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)

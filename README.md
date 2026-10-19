@@ -1,12 +1,12 @@
 # MagicHub
 
-Tool chạy ngầm (khay hệ thống): chọn file trong trình quản lý file → **giữ phím tắt** → **di chuột theo hướng** → nhả phím. Một vòng tròn hiện tại con trỏ với 3 nhóm tác vụ: **Convert · Edit · Organize**.
+Tool chạy ngầm (khay hệ thống): chọn file trong trình quản lý file → **giữ phím tắt** → **di chuột theo hướng** → **click** tác vụ. Một vòng tròn hiện tại con trỏ với 3 nhóm tác vụ: **Convert · Edit · Organize**.
 
 ```
         Convert (12h)
        ╱     │     ╲        Giữ Ctrl+Alt+Shift → vòng tròn mở
   Organize   ●    Edit      Di chuột: vòng trong = nhóm, vòng ngoài = tác vụ
-                            Nhả phím = chạy. Nhả ở tâm/vòng trong = huỷ.
+                            Click tác vụ = chạy. Nhả phím khi chưa trỏ vào tác vụ = huỷ.
 ```
 
 ## Chạy nhanh

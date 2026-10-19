@@ -22,8 +22,9 @@ actions.available(files) → các nhóm/tác vụ áp dụng được
 Wheel.open  (overlay không nhận chuột/focus, hiện tại con trỏ)
    • timer 16 ms: vector chuột → geometry.hit() → (nhóm, tác vụ) → vẽ lại
    ▼
-Hotkey.released ──► Wheel.confirm
-   • có tác vụ được chọn → chosen(action);  ngược lại (tâm / vòng trong) → huỷ
+Wheel.mousePressEvent (click)
+   • đang trỏ vào tác vụ → chosen(action);  ngược lại → huỷ
+Hotkey.released ──► Wheel.release (chưa trỏ tác vụ → huỷ)
    ▼
 Hub.on_chosen
    • action.ask (nếu có) → hộp thoại tham số;  Cancel → dừng
@@ -39,7 +40,7 @@ Một vòng duy nhất, nội dung đổi tại chỗ (không mở thêm vòng n
 - Bán kính < 58 px: vùng chết ở tâm.
 - **Vòng nhóm** (mặc định): hướng chuột rê sáng nhóm. Kéo ra nửa ngoài của ô (≥ 109 px) → vòng tự đổi sang **tác vụ của nhóm đó** (hiệu ứng ~110 ms).
 - **Vòng tác vụ**: các tác vụ chia đều 360°, tác vụ đầu giữa hướng 12h. Hướng chuột chọn tác vụ.
-- Về tâm (< 58 px) → quay lại vòng nhóm. Nhả phím ở tâm hoặc khi chưa chọn tác vụ = huỷ.
+- Về tâm (< 58 px) → quay lại vòng nhóm. **Click** tác vụ = chạy. Nhả phím tắt khi chưa trỏ vào tác vụ = huỷ; nhả khi đang trỏ vào tác vụ = vòng giữ lại chờ click. Click tâm/nhóm = huỷ; bấm phím tắt lần nữa = huỷ.
 - Chỉ nhóm/tác vụ áp dụng được cho lựa chọn mới xuất hiện (xem bảng trong USER_GUIDE).
 - Giao diện: ô bo góc, tông cyber (cyan Convert · magenta Edit · xanh neon Organize).
 

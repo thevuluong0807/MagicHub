@@ -6,7 +6,7 @@ Một thao tác duy nhất (giữ phím + hướng chuột) để chạy convert
 ## Quyết định đã chốt
 | # | Quyết định | Lý do |
 |---|---|---|
-| 1 | Cơ chế: giữ phím → vòng tròn tại con trỏ → di chuột (không bấm) → nhả phím để chạy | Tránh xung đột với kéo-thả file của file manager |
+| 1 | Cơ chế: giữ phím → vòng tròn tại con trỏ → di chuột chọn nhóm/tác vụ → **click** tác vụ để chạy | Tránh xung đột với kéo-thả file; click tránh chạy nhầm khi nhả phím |
 | 2 | Python + PySide6 (UI) + pynput (hotkey) + PyMuPDF/Pillow (engine) + LibreOffice (Office) | Một ngôn ngữ cho UI và engine, cross-platform, không tự viết codec |
 | 3 | Lấy file đang chọn bằng Ctrl+C giả lập + đọc clipboard | Chạy được trên cả 3 OS mà không cần API riêng của từng file manager |
 | 4 | Mỗi tác vụ là một mục đăng ký (`Action`), vòng tròn dựng từ registry | Thêm tác vụ không sửa UI |
@@ -17,7 +17,7 @@ Một thao tác duy nhất (giữ phím + hướng chuột) để chạy convert
 | Bản | Nội dung | Trạng thái |
 |---|---|---|
 | **v0.1** | Vòng tròn + hotkey; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit: protect, redact, highlight, text, image, crop | **Xong, engine đã test; hotkey+clipboard kiểm trên Linux/X11** |
-| v0.2 | OCR (Tesseract/OCRmyPDF) cho PDF scan; mức nén tuỳ chọn; thư mục đích tuỳ chọn; hộp thoại tiến độ | Chưa làm |
+| **v0.2** | OCR (Tesseract) cho PDF scan; mức nén tuỳ chọn; thư mục đích tuỳ chọn; vòng đơn đổi nội dung + giao diện cyber; click chọn tác vụ | **Xong** (OCR chưa chạy thử vì máy chưa cài Tesseract); hộp thoại tiến độ: dùng thông báo khay |
 | v0.3 | Annotation tự do (vẽ, ghi chú) bằng trình xem nhỏ; xem trước redact; sắp xếp lại trang | Chưa làm |
 | v0.4 | Linux Wayland (extension GNOME / portal); macOS đóng gói .app; Windows installer | Chưa làm |
 | v0.5 | Cấu hình menu tuỳ biến (ẩn/hiện/sắp xếp tác vụ), tuỳ chọn nhiều hotkey | Chưa làm |

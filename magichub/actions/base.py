@@ -69,7 +69,13 @@ def natural_key(p):
 
 
 def unique(p) -> Path:
+    """Đường dẫn chưa tồn tại; nếu config.output_dir đặt thì mọi kết quả nằm trong thư mục đó."""
+    from ..config import load
+
     p = Path(p)
+    out_dir = load().get("output_dir")
+    if out_dir and Path(out_dir).is_dir():
+        p = Path(out_dir) / p.name
     q, n = p, 1
     while q.exists():
         q = p.with_name(f"{p.stem}_{n}{p.suffix}")

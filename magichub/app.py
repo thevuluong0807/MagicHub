@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QLockFile, QObject, QRunnable, QThreadPool, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QIcon, QPainter, QPixmap
-from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+from PySide6.QtWidgets import QApplication, QFileDialog, QMenu, QSystemTrayIcon
 
 from . import config
 from .actions import available
@@ -83,6 +83,11 @@ class Hub(QObject):
         self._show_hk()
         if hotkey_enabled:
             menu.addAction("Đổi phím tắt…", self.change_hotkey)
+        self.out_label = menu.addAction("")
+        self.out_label.setEnabled(False)
+        menu.addAction("Thư mục kết quả…", self.change_output)
+        menu.addAction("Lưu cạnh file gốc", lambda: self.set_output(None))
+        self._show_out()
         menu.addAction("Mở thư mục cấu hình", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(config.config_dir()))))
         menu.addAction("Thoát", app.quit)
         self._menu = menu
@@ -90,6 +95,20 @@ class Hub(QObject):
         self.tray.show()
         if hotkey_enabled:
             self.start_hotkey()
+
+    def _show_out(self):
+        d = self.cfg.get("output_dir")
+        self.out_label.setText(f"Kết quả: {d}" if d else "Kết quả: cạnh file gốc")
+
+    def set_output(self, d):
+        self.cfg["output_dir"] = d
+        config.save(self.cfg)
+        self._show_out()
+
+    def change_output(self):
+        d = QFileDialog.getExistingDirectory(None, "Thư mục lưu kết quả", self.cfg.get("output_dir") or str(Path.home()))
+        if d:
+            self.set_output(d)
 
     def _show_hk(self):
         hk = self.cfg["hotkey"]
@@ -116,7 +135,8 @@ class Hub(QObject):
 
     # ---- hotkey flow ----
     def on_pressed(self):
-        if self.wheel.isVisible():
+        if self.wheel.isVisible():  # vòng đang chờ click: bấm phím tắt lần nữa = huỷ
+            self.wheel.cancel()
             return
         self.held = True
         log.info("hotkey pressed")
@@ -147,7 +167,7 @@ class Hub(QObject):
     def on_released(self):
         self.held = False
         if self.wheel.isVisible():
-            self.wheel.confirm()
+            self.wheel.release()
 
     # ---- chạy tác vụ ----
     def on_chosen(self, act):

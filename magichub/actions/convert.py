@@ -8,7 +8,7 @@ from pathlib import Path
 import pymupdf
 from PIL import Image, ImageOps
 
-from .base import (REGISTRY, Action, ext, natural_key, open_pdf, out_path,
+from .base import (REGISTRY, Action, action, ext, natural_key, open_pdf, out_path, save_pdf,
                    soffice_convert, tmpdir, unique)
 
 TARGETS = {
@@ -159,3 +159,29 @@ def _register(kind: str, to: str):
 for _k, _targets in TARGETS.items():
     for _t in _targets:
         _register(_k, _t)
+
+
+def _tess_langs() -> str:
+    """eng + vie nếu đã cài gói ngôn ngữ; chỉ dùng ngôn ngữ có thật để tesseract không báo lỗi."""
+    import subprocess
+
+    r = subprocess.run(["tesseract", "--list-langs"], capture_output=True, text=True)
+    have = set(r.stdout.split())
+    return "+".join(l for l in ("vie", "eng") if l in have) or "eng"
+
+
+@action("convert.pdf.ocr", "convert", "OCR", "PDF scan -> PDF chọn/copy được chữ (cần cài Tesseract)",
+        kinds=("pdf",), check=lambda files: shutil.which("tesseract") is not None)
+def pdf_ocr(files, p):
+    import pymupdf
+
+    lang, outs = _tess_langs(), []
+    for f in files:
+        src = open_pdf(f)
+        doc = pymupdf.open()
+        for page in src:
+            pix = page.get_pixmap(dpi=200)
+            doc.insert_pdf(pymupdf.open("pdf", pix.pdfocr_tobytes(language=lang)))
+        src.close()
+        outs.append(save_pdf(doc, out_path(f, "ocr")))
+    return outs

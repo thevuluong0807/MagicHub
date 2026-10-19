@@ -72,8 +72,8 @@ class Wheel(QWidget):
         self.files, self.groups, self.click_mode = files, groups, click_mode
         self.level, self.hover, self.swap, self.glow = None, None, 0.0, {}
         flags = Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
-        if not click_mode:  # chế độ giữ phím: overlay không nhận chuột/focus
-            flags |= Qt.WindowDoesNotAcceptFocus | Qt.WindowTransparentForInput
+        if not click_mode:  # chế độ giữ phím: không cướp focus của file manager; vẫn nhận click để chọn tác vụ
+            flags |= Qt.WindowDoesNotAcceptFocus
         self.setWindowFlags(flags)
         pos = QCursor.pos()
         scr = QGuiApplication.screenAt(pos) or QGuiApplication.primaryScreen()
@@ -120,8 +120,10 @@ class Wheel(QWidget):
             return None
         return self.groups[self.level][2][self.hover]
 
-    def confirm(self):
-        self._close(self._selected_action())
+    def release(self):
+        """Nhả phím tắt: chưa trỏ vào tác vụ nào -> huỷ; đang trỏ vào tác vụ -> giữ vòng, chờ click để chạy."""
+        if self._selected_action() is None:
+            self.cancel()
 
     def cancel(self):
         self._close(None)
@@ -132,8 +134,8 @@ class Wheel(QWidget):
         self.chosen.emit(act)
 
     def mousePressEvent(self, e):
-        if self.click_mode:
-            self.confirm()
+        """Click vào tác vụ = chạy; click chỗ khác (tâm, nhóm) = huỷ."""
+        self._close(self._selected_action())
 
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Escape:

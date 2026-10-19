@@ -81,22 +81,33 @@ action("organize.rotate_cw", "organize", "↻ 90°", "Xoay phải 90°", kinds=(
 action("organize.rotate_ccw", "organize", "↺ 90°", "Xoay trái 90°", kinds=("pdf", "img"))(_rotate(-90))
 
 
+# mức nén: (dpi ảnh PDF, chất lượng JPEG PDF, cạnh dài tối đa ảnh, chất lượng ảnh)
+LEVELS = {"Nhẹ (giữ nét)": (150, 80, 3200, 85), "Vừa": (110, 65, 2560, 72), "Mạnh": (72, 45, 1600, 55)}
+
+
+def _ask_level(files):
+    from ..dialogs import ask_form
+
+    return ask_form("Nén", [{"name": "level", "label": "Mức nén", "type": "choice", "choices": list(LEVELS)}])
+
+
 @action("organize.compress", "organize", "Compress", "Nén PDF/ảnh (giảm độ phân giải ảnh, tối ưu cấu trúc)",
-        kinds=("pdf", "img"))
+        kinds=("pdf", "img"), ask=_ask_level)
 def compress(files, p):
+    dpi, q_pdf, side, q_img = LEVELS[p.get("level", "Vừa")]
     outs = []
     for f in files:
         out = out_path(f, "small")
         if kind_of(f) == "pdf":
             doc = open_pdf(f)
-            doc.rewrite_images(dpi_threshold=150, dpi_target=110, quality=65)
+            doc.rewrite_images(dpi_threshold=dpi + 40, dpi_target=dpi, quality=q_pdf)
             outs.append(save_pdf(doc, out, clean=True, use_objstms=True))
         else:
             im = ImageOps.exif_transpose(Image.open(f))
-            im.thumbnail((2560, 2560))
+            im.thumbnail((side, side))
             fmt = (f.suffix.lower().lstrip(".")).replace("jpg", "jpeg")
             if fmt in ("jpeg", "webp"):
-                im.convert("RGB").save(out, fmt.upper(), quality=72, optimize=True)
+                im.convert("RGB").save(out, fmt.upper(), quality=q_img, optimize=True)
             else:
                 im.save(out, optimize=True)
             outs.append(out)
