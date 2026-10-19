@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import sys
 import threading
 import time
@@ -43,7 +44,7 @@ def _size(n: int) -> str:
 
 
 class _Sig(QObject):
-    done = Signal(object, list, list)  # action, inputs, outputs
+    done = Signal(object, list)  # job, outputs (truyền chính Job: Qt sao chép list khi chuyển luồng nên không so sánh được bằng `is`)
     fail = Signal(str)
     progress = Signal(float, str)  # 0..1 hoặc -1 (chưa biết), dòng chi tiết
     cancelled = Signal()
@@ -66,7 +67,7 @@ class Job(QRunnable):
         self.started = True
         bind(self._report, self.stop.is_set)
         try:
-            self.sig.done.emit(self.act, self.files, self.act.run(self.files, self.params))
+            self.sig.done.emit(self, self.act.run(self.files, self.params))
         except Cancelled:
             self.sig.cancelled.emit()
         except Exception as e:  # lỗi file người dùng phải hiện, không được nuốt
@@ -280,14 +281,15 @@ class Hub(QObject):
             f.write(json.dumps({"ts": int(time.time()), "action": act.id, "inputs": [str(x) for x in files],
                                 "outputs": [str(x) for x in outs], "status": status, **extra}, ensure_ascii=False) + "\n")
 
-    def _job_of(self, act, files):
-        return next((j for j in self.jobs if j.act is act and j.files is files), None)
-
-    def on_done(self, act, files, outs):
-        job = self._job_of(act, files)
-        if job:
-            job.finished = True
-            self.jobs.discard(job)
+    def on_done(self, job, outs):
+        act, files = job.act, job.files
+        job.finished = True
+        self.jobs.discard(job)
+        if job.stop.is_set():  # huỷ nhưng bước cuối không ngắt được: bỏ kết quả vừa tạo
+            for o in outs:
+                if o not in files and o.exists():
+                    shutil.rmtree(o, ignore_errors=True) if o.is_dir() else o.unlink(missing_ok=True)
+            return self.on_cancelled(job)
         self.last_out = outs[0] if outs else None
         msg = ", ".join(o.name for o in outs[:3]) + (f" (+{len(outs) - 3})" if len(outs) > 3 else "")
         if len(files) == len(outs) == 1 and files[0].is_file() and outs[0].is_file():
@@ -328,6 +330,7 @@ def main(files: list[Path] | None = None) -> int:
     logging.basicConfig(filename=config.config_dir() / "magichub.log", level=logging.INFO)
     if config.is_wayland():
         os.environ.setdefault("QT_QPA_PLATFORM", "xcb")  # XWayland: đặt được cửa sổ overlay không viền, luôn trên cùng
+    sys.setswitchinterval(0.002)  # luồng xử lý nặng (Python thuần) không được bỏ đói luồng giao diện
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     theme.apply(app)

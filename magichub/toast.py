@@ -127,7 +127,7 @@ class Toast(QWidget):
         self._clear_buttons()
         if on_cancel:
             self._add_button("Huỷ", self._cancel)
-        self.close_btn.hide()
+        self.close_btn.show()  # luôn đóng được thẻ; việc vẫn chạy nền, kết quả báo qua bong bóng khay
         self.hide_timer.stop()
         self.tick.start()
         self._place()

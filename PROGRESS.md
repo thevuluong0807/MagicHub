@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.8.0**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.8.1**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -20,6 +20,11 @@
 
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
+
+## 2026-10-19 — v0.8.1
+- Sửa thẻ tiến trình kẹt "đang chạy" và không huỷ/đóng được: `done` so `files is files` nhưng Qt sao chép list khi chuyển luồng -> luôn sai. Nay signal truyền chính `Job`.
+- Thẻ luôn có ✕. PDF→Word có % và huỷ được (bắt log `(i/n) Page` của pdf2docx; `Cancelled` giờ kế thừa `BaseException` để không bị `except Exception` của thư viện nuốt). Huỷ khi bước cuối không ngắt được: xoá kết quả vừa tạo. `sys.setswitchinterval(0.002)`.
+- Tests: `test_docx_progress_hook`, mở rộng `test_hub_toast` (việc >600 ms xong bình thường; huỷ muộn).
 
 ## 2026-10-19 — v0.8.0
 - **Engine Office** (`actions/office.py`): Windows/macOS mặc định dùng Microsoft Office nếu có (Windows: PowerShell COM, không thêm dependency; macOS: osascript, ghi qua Group Container của Office), lỗi thì rơi về LibreOffice. `config.engine` = `auto|office|libreoffice` (+ menu khay "Engine Office"). Ép `office` mà chưa cài → báo lỗi rõ. Mac chỉ PDF; Windows làm cả pdf/txt(Word)/csv(Excel)/pptx. **Chưa thử trên Windows/macOS thật** (máy dev Linux); logic chọn engine có test giả lập.

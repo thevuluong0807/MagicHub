@@ -79,7 +79,7 @@ def natural_key(p):
 
 
 # ---------- Tiến trình + huỷ (thread-local: mỗi Job một ngữ cảnh) ----------
-class Cancelled(Exception):
+class Cancelled(BaseException):  # BaseException: không bị `except Exception` của thư viện thứ ba (pdf2docx…) nuốt
     pass
 
 

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import io
+import logging
+import re
 import shutil
 from pathlib import Path
 
@@ -40,15 +42,36 @@ def render_pdf(pdf, to, base: Path) -> Path:
     return out
 
 
+class _PageLog(logging.Handler):
+    """Đọc log của pdf2docx: pha 1 phân tích trang, pha 2 dựng trang; trang quay về 1 = sang pha 2. Ngoại lệ Cancelled đi xuyên qua cv.convert."""
+
+    def __init__(self):
+        super().__init__(logging.INFO)
+        self.phase, self.last = 0, 0
+
+    def emit(self, record):
+        m = re.match(r"\((\d+)/(\d+)\) Page", record.getMessage())
+        if not m:
+            return
+        i, n = int(m.group(1)), int(m.group(2))
+        if i < self.last:
+            self.phase = 1
+        self.last = i
+        report((self.phase + i / n) / 2, f"Word: {'dựng' if self.phase else 'phân tích'} trang {i}/{n}")
+
+
 def pdf_to_docx(src: Path) -> Path:
     from pdf2docx import Converter
 
     out = out_path(src, new_ext="docx")
     report(None, "Đang chuyển sang Word (file lớn có thể lâu)…")
     cv = Converter(str(src))
+    hook = _PageLog()
+    logging.getLogger().addHandler(hook)  # pdf2docx chỉ báo tiến độ qua log "(i/n) Page"; bắt để hiện % và huỷ được
     try:
         cv.convert(str(out))
     finally:
+        logging.getLogger().removeHandler(hook)
         cv.close()
     return out
 

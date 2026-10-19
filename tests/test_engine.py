@@ -457,6 +457,26 @@ def test_progress_engine(td):
         cfg = config.load(); cfg["engine"] = "auto"; config.save(cfg)
 
 
+def test_docx_progress_hook():
+    import logging
+    from magichub.actions.base import Cancelled, bind
+    from magichub.actions.convert import _PageLog
+
+    got = []
+    bind(lambda f, t: got.append(round(f, 2)), None)
+    h = _PageLog()
+    for i in (1, 2, 1, 2):  # 2 trang: pha phân tích rồi pha dựng
+        h.emit(logging.LogRecord("x", logging.INFO, "", 0, f"({i}/2) Page {i}", None, None))
+    assert got == [0.25, 0.5, 0.75, 1.0], got
+    bind(None, lambda: True)
+    try:
+        h.emit(logging.LogRecord("x", logging.INFO, "", 0, "(1/2) Page 1", None, None))
+        raise AssertionError
+    except Cancelled:
+        pass
+    bind(None, None)
+
+
 def test_hub_toast(td):
     import time as _t
     from PySide6.QtWidgets import QApplication
@@ -489,6 +509,28 @@ def test_hub_toast(td):
     hub.cancel_job(next(iter(hub.jobs)))
     pump(lambda: hub.toast.state == "error" and "huỷ" in hub.toast.title.text())
     assert not hub.jobs
+    def mid(files, p):  # chạy lâu hơn 600 ms rồi xong bình thường: thẻ phải chuyển từ chạy sang xong (lỗi cũ: kẹt "đang chạy")
+        for _ in steps(range(40)):
+            _t.sleep(0.02)
+        return []
+
+    hub.on_chosen(Action("t.mid", "edit", "Mid", "vừa", mid))
+    pump(lambda: hub.toast.state == "running")
+    pump(lambda: hub.toast.state == "done" and "Mid" in hub.toast.title.text())
+    assert not hub.jobs and hub.toast.close_btn.isVisible()
+
+    def late(files, p):  # bước cuối không ngắt được: huỷ trước khi xong -> kết quả bị bỏ
+        for _ in range(75):
+            _t.sleep(0.02)
+        o = td / "late_out.txt"
+        o.write_text("x")
+        return [o]
+
+    hub.on_chosen(Action("t.late", "edit", "Late", "muộn", late))
+    pump(lambda: hub.toast.state == "running")
+    hub.cancel_job(next(iter(hub.jobs)))
+    pump(lambda: hub.toast.state == "error" and not hub.jobs)
+    assert not (td / "late_out.txt").exists()
     done = Action("t.fast", "edit", "Fast", "nhanh", lambda files, p: files)
     hub.on_chosen(done)
     pump(lambda: hub.toast.state == "done" and "Fast" in hub.toast.title.text())
@@ -502,6 +544,7 @@ if __name__ == "__main__":
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)
+    test_docx_progress_hook()
     test_cropwidget()
     print("ok test_cropwidget")
     print("ok test_geometry\nALL PASS")
