@@ -23,14 +23,15 @@
 ## Edit
 | Tác vụ | Giới hạn |
 |---|---|
-| Redact | Xoá thật (gỡ text/ảnh dưới vùng che) nhưng **chỉ theo từ khoá**, chưa chọn vùng tay. Không xử lý PDF scan (chữ nằm trong ảnh) |
+| Redact | Xoá thật (gỡ text/ảnh dưới vùng che), theo từ khoá và/hoặc vùng kéo tay (vùng tay chỉ áp dụng file đầu). Không nhận diện chữ trong ảnh: PDF scan cần OCR trước hoặc kéo vùng tay |
 | Crop PDF | Đặt CropBox (ẩn phần ngoài, **không xoá** nội dung). Chưa phù hợp để giấu thông tin nhạy cảm — dùng Redact |
 | Text/Image | Trang PDF có thuộc tính xoay sẵn có thể đặt lệch hướng. Font Unicode: DejaVu Sans / Arial |
 | Protect | AES-256, một mật khẩu cho cả mở và chủ sở hữu. **Mất mật khẩu = mất file**, không khôi phục được |
 | Word/Excel/PPT | Không có Edit tại chỗ. Hướng đi: convert sang PDF rồi Edit |
-| Annotation vẽ tay / ghi chú | Chưa có (v0.3); hiện chỉ Highlight theo từ khoá |
+| Draw | Nét vẽ là annotation PDF (sửa được trong trình xem PDF khác); ghi chú là hộp chữ **in cứng vào trang** (hỗ trợ tiếng Việt), không sửa lại được. Chỉ 1 file mỗi lần; cỡ hộp ghi chú ước lượng, chữ dài có thể bị cắt |
 
 ## Organize
+- Reorder: chỉ 1 PDF; chỉ đổi thứ tự/xoá trang (chưa xoay từng trang).
 - Merge sắp xếp **theo tên file (tự nhiên)**, không theo thứ tự chọn, vì file manager không đảm bảo thứ tự clipboard.
 - Compress: 3 mức. PDF: Nhẹ 150 dpi/Q80 · Vừa 110/Q65 · Mạnh 72/Q45; ảnh: cạnh dài tối đa 3200/2560/1600 px. PDF chủ yếu là text hầu như không nhỏ đi. Có thể ra file lớn hơn nếu PDF đã tối ưu — thông báo hiện cả hai dung lượng.
 

@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.2.0**. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.3.0**. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -13,10 +13,16 @@
 1. Người dùng thử hotkey/click với file manager thật, báo lại. Nếu "Chưa chọn file": chuyển `send_copy` sang python-xlib XTest (Linux) / SendInput (Windows).
 2. Xác nhận workflow GitHub Actions build 3 OS (chưa xem kết quả); thử Windows/macOS thật.
 3. Cài Tesseract rồi thử Convert → OCR (chưa chạy thử).
-4. v0.3: annotation vẽ tay, xem trước redact, sắp xếp lại trang. v0.4: Wayland, đóng gói .app/installer. v0.5: menu tuỳ biến (docs/PLAN.md).
+4. Thử chuột thật: Draw, Redact xem trước, Reorder (mới chỉ test headless).
+5. v0.4: Wayland, đóng gói .app/installer. v0.5: menu tuỳ biến (docs/PLAN.md).
 
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
+
+## 2026-10-19 — v0.3.0
+- `viewer.py` mới: `PageCanvas` (vẽ tay / ghi chú / kéo vùng, toạ độ 0..1), `ask_annotate`, `ask_redact` (xem trước khớp từ khoá + vùng tay), `ask_reorder` (kéo thả thumbnail, xoá trang).
+- Tác vụ mới: `edit.annotate` (Draw), `organize.reorder`; `edit.redact` nhận `rects`. Test mới `test_v03` (engine + canvas offscreen). Ghi chú in cứng bằng DejaVu nên có tiếng Việt.
+- Vòng tròn nay có tới 9 ô Organize cho PDF; nếu chật cân nhắc gộp Pages vào Reorder.
 
 ## 2026-10-19 — v0.2.0
 - Click tác vụ (vd Convert → PDF) mới chạy; nhả phím khi chưa trỏ tác vụ = huỷ; nhả khi đang trỏ = giữ vòng chờ click; click tâm/nhóm hoặc bấm phím tắt lần nữa = huỷ.
