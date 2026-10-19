@@ -11,7 +11,7 @@ def is_wayland() -> bool:
 
 
 DEFAULT = {"hotkeys": [{"modifiers": ["ctrl", "alt", "shift"], "key": "", "group": None}], "output_dir": None,
-           "menu": {"hidden": [], "order": []}, "engine": "auto"}
+           "menu": {"hidden": [], "order": []}, "engine": "auto", "update_check": True, "last_update_check": 0}
 
 
 def config_dir() -> Path:

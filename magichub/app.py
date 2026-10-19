@@ -15,9 +15,9 @@ from PySide6.QtCore import QLockFile, QObject, QRunnable, QThreadPool, QTimer, Q
 from PySide6.QtGui import QActionGroup, QColor, QDesktopServices, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QApplication, QFileDialog, QMenu, QSystemTrayIcon
 
-from . import config, theme
+from . import __version__, config, theme, updater
 from .actions import available
-from .actions.base import Cancelled, bind
+from .actions.base import Action, Cancelled, bind
 from .actions.office import ENGINES
 from .hotkey import Hotkey
 from .toast import Toast
@@ -41,6 +41,10 @@ def _icon() -> QIcon:
 
 def _size(n: int) -> str:
     return f"{n / 1048576:.1f} MB" if n >= 1048576 else f"{n / 1024:.0f} KB"
+
+
+class _UpdSig(QObject):
+    found = Signal(dict, bool)  # thông tin bản mới ({} = không có), có phải do người dùng bấm kiểm tra
 
 
 class _Sig(QObject):
@@ -111,6 +115,9 @@ class Hub(QObject):
         menu.addAction("Thư mục kết quả…", self.change_output)
         menu.addAction("Lưu cạnh file gốc", lambda: self.set_output(None))
         self._show_out()
+        self.upd = menu.addAction("", self.start_update)  # chỉ hiện khi có bản mới
+        self.upd.setVisible(False)
+        menu.addAction("Kiểm tra cập nhật", lambda: self.check_update(manual=True))
         eng = menu.addMenu("Engine Office")  # engine chuyển Word/Excel/PowerPoint
         grp = QActionGroup(eng)
         for key, label in ENGINES.items():
@@ -126,6 +133,41 @@ class Hub(QObject):
         self.tray.show()
         if hotkey_enabled:
             self.start_hotkeys()
+        self.update_info = None
+        self.upd_sig = _UpdSig()
+        self.upd_sig.found.connect(self.on_update_found)
+        if self.cfg.get("update_check", True) and not os.environ.get("MAGICHUB_NO_UPDATE") and time.time() - self.cfg.get("last_update_check", 0) > 86400:
+            QTimer.singleShot(8000, self.check_update)  # sau khi khởi động xong, tối đa 1 lần/ngày
+
+    # ---- cập nhật ----
+    def check_update(self, manual=False):
+        def work():
+            self.upd_sig.found.emit(updater.check() or {}, manual)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def on_update_found(self, info, manual):
+        self.cfg["last_update_check"] = int(time.time())
+        config.save(self.cfg)
+        if not info:
+            if manual:
+                self.toast.finish(True, "Đang dùng bản mới nhất", f"MagicHub {__version__}")
+            return
+        self.update_info = info
+        self.upd.setText(f"⬆ Cập nhật lên v{info['version']}")
+        self.upd.setVisible(True)
+        label = "Cập nhật" if updater.mode() != "manual" else "Mở trang tải"
+        if self.toast.state != "running":
+            self.toast.finish(True, f"Có bản mới v{info['version']}", f"Đang dùng {__version__}", [(label, self.start_update)])
+
+    def start_update(self):
+        info = self.update_info
+        if not info:
+            return
+        if updater.mode() == "manual":
+            return QDesktopServices.openUrl(QUrl(info["page"]))
+        act = Action("update", "edit", "Cập nhật", f"Cập nhật lên v{info['version']}", lambda files, p: updater.apply(info))
+        self._start(act, [Path(sys.argv[0])], {})
 
     def set_engine(self, key):
         self.cfg["engine"] = key
@@ -229,7 +271,10 @@ class Hub(QObject):
                 return self.notify("MagicHub", f"Không mở được hộp thoại: {e}", error=True)
             if params is None:
                 return
-        job = Job(act, self.files, params)
+        self._start(act, self.files, params)
+
+    def _start(self, act, files, params):
+        job = Job(act, files, params)
         self.jobs.add(job)
         job.sig.done.connect(self.on_done)
         job.sig.fail.connect(lambda m, j=job: self.on_fail(m, j))
@@ -285,6 +330,12 @@ class Hub(QObject):
         act, files = job.act, job.files
         job.finished = True
         self.jobs.discard(job)
+        if act.id == "update":  # không phải kết quả file: không xoá, không ghi lịch sử
+            if job.stop.is_set():
+                return self.on_cancelled(job)
+            self.toast.finish(True, "Đã cập nhật", "Đang khởi động lại…")
+            updater.restart(outs)
+            return QTimer.singleShot(500, self.app.quit)
         if job.stop.is_set():  # huỷ nhưng bước cuối không ngắt được: bỏ kết quả vừa tạo
             for o in outs:
                 if o not in files and o.exists():

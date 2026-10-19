@@ -457,6 +457,49 @@ def test_progress_engine(td):
         cfg = config.load(); cfg["engine"] = "auto"; config.save(cfg)
 
 
+def test_updater(td):
+    import http.server, threading
+    from magichub import updater
+    from magichub.actions.base import Cancelled, bind
+
+    assert updater.parse("v0.10.0") > updater.parse("0.9.3") and updater.parse("v0.8.1") == (0, 8, 1)
+    rel = lambda tag: (lambda: {"tag_name": tag, "html_url": "http://x/r", "assets": [
+        {"name": "MagicHub-x86_64.AppImage", "browser_download_url": "http://x/a"}]})
+    assert updater.check("0.8.1", rel("v0.8.1")) is None and updater.check("0.8.1", rel("v0.8.0")) is None
+    info = updater.check("0.8.1", rel("v0.9.0"))
+    assert info["version"] == "0.9.0" and info["assets"]["MagicHub-x86_64.AppImage"] == "http://x/a"
+    def boom(): raise OSError("offline")
+    assert updater.check("0.8.1", boom) is None  # mất mạng: im lặng
+    # cài AppImage từ server cục bộ: thay file đang chạy, có % tiến trình, không để lại .new/.part
+    (td / "srv").mkdir()
+    (td / "srv" / "new.AppImage").write_bytes(b"NEW" * 200000)
+    h = lambda *a, **k: http.server.SimpleHTTPRequestHandler(*a, directory=str(td / "srv"), **k)
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), h)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{srv.server_port}/new.AppImage"
+    app = td / "MagicHub.AppImage"; app.write_bytes(b"OLD")
+    os.environ["APPIMAGE"] = str(app)
+    real = updater.sys.platform
+    updater.sys.platform = "linux"
+    try:
+        fr = []
+        bind(lambda f, t: fr.append(f), None)
+        assert updater.mode() == "appimage"
+        updater.apply({"assets": {"MagicHub-x86_64.AppImage": url}})
+        assert app.read_bytes()[:3] == b"NEW" and os.access(app, os.X_OK) and fr[-1] == 1.0
+        assert not list(td.glob("*.new")) and not list(td.glob("*.part"))
+        app.write_bytes(b"OLD")  # huỷ giữa chừng: giữ nguyên bản cũ, dọn file tạm
+        bind(None, lambda: True)
+        try:
+            updater.apply({"assets": {"MagicHub-x86_64.AppImage": url}})
+            raise AssertionError
+        except Cancelled:
+            pass
+        assert app.read_bytes() == b"OLD" and not list(td.glob("*.part")) and not list(td.glob("*.new"))
+    finally:
+        bind(None, None); updater.sys.platform = real; os.environ.pop("APPIMAGE"); srv.shutdown()
+
+
 def test_docx_progress_hook():
     import logging
     from magichub.actions.base import Cancelled, bind
@@ -540,7 +583,7 @@ def test_hub_toast(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_progress_engine, test_hub_toast):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_progress_engine, test_hub_toast, test_updater):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)

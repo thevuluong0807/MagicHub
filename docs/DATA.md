@@ -15,7 +15,8 @@ Tạo tự động lần chạy đầu; thiếu khoá → dùng mặc định; f
               { "modifiers": ["ctrl", "alt"], "key": "f9", "group": "convert" }],
   "output_dir": null,
   "menu": { "hidden": ["edit.protect"], "order": ["edit.crop"] },
-  "engine": "auto"
+  "engine": "auto",
+  "update_check": true
 }
 ```
 | Khoá | Giá trị | Ghi chú |
@@ -26,6 +27,7 @@ Tạo tự động lần chạy đầu; thiếu khoá → dùng mặc định; f
 | `output_dir` | đường dẫn thư mục hoặc `null` | `null` = kết quả cạnh file gốc; đặt thì mọi kết quả vào thư mục đó (không tồn tại → cạnh file gốc) |
 | `menu.hidden` | danh sách `id` tác vụ | Ẩn khỏi vòng tròn và `actions` (CLI `do` vẫn chạy được). Nhóm hết tác vụ thì không hiện |
 | `engine` | `auto` \| `office` \| `libreoffice` | Engine chuyển Word/Excel/PowerPoint. `auto`: Windows/macOS dùng Microsoft Office nếu đã cài (lỗi thì rơi về LibreOffice), Linux dùng LibreOffice. `office`: ép Microsoft Office (chưa cài → báo lỗi). Đổi được ở menu khay "Engine Office" |
+| `update_check` | `true` \| `false` | Tự hỏi GitHub Releases xem có bản mới không (8 s sau khi khởi động, tối đa 1 lần/ngày). `false` hoặc biến môi trường `MAGICHUB_NO_UPDATE=1` = tắt. Vẫn bấm tay được ở menu khay "Kiểm tra cập nhật" |
 | `menu.order` | danh sách `id` tác vụ | Thứ tự trong nhóm; `id` không có trong danh sách giữ thứ tự mặc định, xếp sau |
 
 Config cũ (v0.1–0.4) có khoá `hotkey` (một tổ hợp) tự chuyển thành `hotkeys` khi đọc. Mọi mục đổi được ngay từ menu khay (Phím tắt… / Tuỳ chỉnh menu… / Thư mục kết quả…), có hiệu lực không cần khởi động lại.
