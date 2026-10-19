@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import time
 import traceback
@@ -218,9 +219,15 @@ class Hub(QObject):
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(d)))
 
 
+WAYLAND_MSG = ("Wayland không cho bắt phím tắt toàn cục. Chạy `magichub install-integration` rồi chuột phải file → "
+               "Scripts/MagicHub (Nautilus), hoặc đăng nhập phiên Xorg để dùng phím tắt")
+
+
 def main(files: list[Path] | None = None) -> int:
     """files=None: chạy daemon hotkey. files=[...]: mở vòng tròn một lần tại con trỏ (chế độ bấm chuột)."""
     logging.basicConfig(filename=config.config_dir() / "magichub.log", level=logging.INFO)
+    if config.is_wayland():
+        os.environ.setdefault("QT_QPA_PLATFORM", "xcb")  # XWayland: đặt được cửa sổ overlay không viền, luôn trên cùng
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     if files is None:
@@ -228,7 +235,10 @@ def main(files: list[Path] | None = None) -> int:
         if not lock.tryLock(100):
             print("MagicHub đã chạy rồi")
             return 1
-    hub = Hub(app, hotkey_enabled=files is None)
+    wayland = files is None and config.is_wayland()
+    hub = Hub(app, hotkey_enabled=files is None and not wayland)
+    if wayland:
+        QTimer.singleShot(500, lambda: hub.notify("MagicHub (Wayland)", WAYLAND_MSG))
     if files is not None:
         hub.quit_after = True
         hub.wheel.chosen.connect(lambda a: a is None and QTimer.singleShot(0, app.quit))

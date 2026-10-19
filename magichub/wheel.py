@@ -8,6 +8,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QCursor, QFont, QGuiApplication, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import QWidget
 
+from . import config
 from .geometry import R0, R1, R_MID, ring_arc, ring_hit
 
 ACCENT = {"convert": "#00e5ff", "edit": "#ff2bd6", "organize": "#39ff88"}  # cyber: cyan / magenta / neon green
@@ -79,7 +80,9 @@ class Wheel(QWidget):
         scr = QGuiApplication.screenAt(pos) or QGuiApplication.primaryScreen()
         g, m = scr.geometry(), self.size_px // 2
         c = type(pos)(min(max(pos.x(), g.left() + m), g.right() - m), min(max(pos.y(), g.top() + m), g.bottom() - m))
-        if c != pos:
+        if config.is_wayland():  # Wayland không cho đọc/đặt vị trí con trỏ toàn cục: mở giữa màn hình, chờ chuột rê vào
+            c = g.center()
+        elif c != pos:
             QCursor.setPos(c)  # đưa con trỏ vào tâm vòng khi mở sát mép màn hình
         self.center_global = c
         self.move(c.x() - self.size_px // 2, c.y() - self.size_px // 2)

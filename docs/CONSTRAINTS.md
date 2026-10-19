@@ -42,7 +42,7 @@
 - Wayland: pynput không bắt được phím toàn cục → xem PLATFORM.md.
 
 ## Bảo mật
-- File lạ (PDF/Office độc hại) được mở bằng PyMuPDF/LibreOffice trong cùng tiến trình/tiến trình con của người dùng, **chưa sandbox**. Chỉ dùng với file tin cậy. Sandbox dự kiến v0.4.
+- File lạ (PDF/Office độc hại) được mở bằng PyMuPDF/LibreOffice trong cùng tiến trình/tiến trình con của người dùng, **chưa sandbox**. Chỉ dùng với file tin cậy. Sandbox chưa làm (chưa có kế hoạch cụ thể).
 - Mật khẩu chỉ nằm trong bộ nhớ lúc chạy; `history.jsonl` **không lưu tham số**.
 
 ## License

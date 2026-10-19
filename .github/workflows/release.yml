@@ -18,23 +18,24 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.11"}
       - run: pip install -r requirements.txt pyinstaller
-      - name: Build
-        run: pyinstaller --noconfirm --name MagicHub --windowed --collect-submodules magichub --collect-all pdf2docx entry.py
-      - name: Pack
+      - name: Build + pack
         shell: bash
         run: |
-          cd dist
-          if [ "${{ matrix.name }}" = windows ]; then
-            7z a ../MagicHub-windows.zip MagicHub
-          elif [ "${{ matrix.name }}" = macos ]; then
-            ditto -c -k --keepParent MagicHub.app ../MagicHub-macos.zip
-          else
-            tar czf ../MagicHub-linux.tar.gz MagicHub
-            cd ..
-            curl -fsSL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
-            chmod +x appimagetool
-            APPIMAGETOOL="$PWD/appimagetool --appimage-extract-and-run" bash packaging/linux/appimage.sh
-          fi
+          V=$(python -c "import magichub; print(magichub.__version__)")
+          case "${{ matrix.name }}" in
+            windows)
+              pyinstaller --noconfirm --name MagicHub --windowed --collect-submodules magichub --collect-all pdf2docx entry.py
+              (cd dist && 7z a ../MagicHub-windows.zip MagicHub)
+              iscc "/DVersion=$V" packaging/windows/MagicHub.iss ;;
+            macos)
+              bash packaging/macos/build.sh ;;
+            linux)
+              pyinstaller --noconfirm --name MagicHub --windowed --collect-submodules magichub --collect-all pdf2docx entry.py
+              (cd dist && tar czf ../MagicHub-linux.tar.gz MagicHub)
+              curl -fsSL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+              chmod +x appimagetool
+              APPIMAGETOOL="$PWD/appimagetool --appimage-extract-and-run" bash packaging/linux/appimage.sh ;;
+          esac
       - uses: actions/upload-artifact@v4
         with:
           name: MagicHub-${{ matrix.name }}

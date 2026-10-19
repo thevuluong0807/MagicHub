@@ -14,6 +14,8 @@ def main():
     d.add_argument("action")
     d.add_argument("files", nargs="+")
     d.add_argument("-p", "--param", action="append", default=[], help="key=value")
+    i = sub.add_parser("install-integration", help="tự chạy khi đăng nhập + mục menu trong file manager (Nautilus/Nemo/Dolphin, Windows Send to)")
+    i.add_argument("--remove", action="store_true", help="gỡ các file đã tạo")
     a = sub.add_parser("actions", help="liệt kê tác vụ (áp dụng cho FILE nếu có)")
     a.add_argument("files", nargs="*")
     args = ap.parse_args()
@@ -26,6 +28,12 @@ def main():
         from .app import main as run
 
         return run([Path(f).resolve() for f in args.files])
+    if args.cmd == "install-integration":
+        from . import integrate
+
+        for f in (integrate.remove() if args.remove else integrate.install()):
+            print(("đã xoá " if args.remove else "đã tạo ") + str(f))
+        return 0
     from .actions import REGISTRY, available, by_id
 
     if args.cmd == "actions":

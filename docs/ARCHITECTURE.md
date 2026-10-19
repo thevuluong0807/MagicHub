@@ -9,7 +9,8 @@ magichub/
   geometry.py       Toán thuần: ring_hit(dx,dy,n) → (ô, bán kính)   ← có test, không Qt
   dialogs.py        ask_form (form tham số) + ask_crop (chọn vùng) + ask_hotkey
   viewer.py         Trình xem PDF nhỏ: PageCanvas (vẽ/ghi chú/vùng), ask_annotate, ask_redact (xem trước), ask_reorder
-  config.py         Đường dẫn dữ liệu theo OS + config.json
+  config.py         Đường dẫn dữ liệu theo OS + config.json + is_wayland()
+  integrate.py      install-integration: autostart + menu file manager (Nautilus/Nemo/Dolphin, Windows SendTo, macOS LaunchAgent)
   actions/
     base.py         Action, REGISTRY, helper (unique, out_path, parse_ranges, soffice, font, PDF)
     convert.py      bảng TARGETS → đăng ký convert.<kind>.<to>

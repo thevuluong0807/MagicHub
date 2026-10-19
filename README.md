@@ -18,6 +18,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # Windows: 
 ./run.sh menu a.pdf b.png        # mở vòng tròn một lần cho file chỉ định (bấm chuột để chọn)
 ./run.sh do organize.compress a.pdf   # chạy thẳng một tác vụ, không GUI
 ./run.sh actions a.pdf           # liệt kê tác vụ áp dụng được
+./run.sh install-integration     # tự chạy khi đăng nhập + mục menu trong file manager (Wayland dùng cách này)
 .venv/bin/python tests/test_engine.py  # kiểm tra engine
 ```
 

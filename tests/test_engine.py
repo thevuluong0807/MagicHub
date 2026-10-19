@@ -147,6 +147,18 @@ def test_v03(td):
     cv.grab()  # vẽ không crash
 
 
+def test_integrate(td):
+    from magichub import integrate
+    if sys.platform != "linux":
+        return
+    made = integrate.install(td)
+    names = {p.name for p in made}
+    assert {"magichub.desktop", "MagicHub", "magichub.nemo_action"} <= names
+    assert (td / ".local/share/nautilus/scripts/MagicHub").stat().st_mode & 0o111
+    assert " menu " in (td / ".local/share/nemo/actions/magichub.nemo_action").read_text()
+    assert len(integrate.remove(td)) == len(made) and not (td / ".config/autostart/magichub.desktop").exists()
+
+
 def test_convert(td):
     pdf = make_pdf(td / "c.pdf")
     (o,) = run("convert.pdf.txt", [pdf])
@@ -220,7 +232,7 @@ def test_edit(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_convert, test_pdf_table, test_edit):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_convert, test_pdf_table, test_edit):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)

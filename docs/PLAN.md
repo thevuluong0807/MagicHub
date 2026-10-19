@@ -19,7 +19,7 @@ Một thao tác duy nhất (giữ phím + hướng chuột) để chạy convert
 | **v0.1** | Vòng tròn + hotkey; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit: protect, redact, highlight, text, image, crop | **Xong, engine đã test; hotkey+clipboard kiểm trên Linux/X11** |
 | **v0.2** | OCR (Tesseract) cho PDF scan; mức nén tuỳ chọn; thư mục đích tuỳ chọn; vòng đơn đổi nội dung + giao diện cyber; click chọn tác vụ | **Xong** (OCR chưa chạy thử vì máy chưa cài Tesseract); hộp thoại tiến độ: dùng thông báo khay |
 | **v0.3** | Vẽ tay + ghi chú (trình xem nhỏ); redact có xem trước + chọn vùng tay; sắp xếp/xoá trang bằng ảnh thu nhỏ | **Xong** (test headless + render ảnh; chưa thử chuột thật) |
-| v0.4 | Linux Wayland (extension GNOME / portal); macOS đóng gói .app; Windows installer | Chưa làm |
+| **v0.4** | Wayland: chạy qua menu file manager (`install-integration`: Nautilus/Nemo/Dolphin) + overlay XWayland; macOS `.app` + `.dmg` (menu bar, ký ad-hoc); Windows installer (Inno Setup: autostart, Send to) | **Xong về code**; Wayland/macOS/Windows **chưa chạy thử** (máy dev là X11). Hotkey toàn cục Wayland (portal GlobalShortcuts) chưa làm: GNOME 42 chưa có |
 | v0.5 | Cấu hình menu tuỳ biến (ẩn/hiện/sắp xếp tác vụ), tuỳ chọn nhiều hotkey | Chưa làm |
 
 ## Việc đã kiểm / chưa kiểm

@@ -19,6 +19,7 @@ Mức hỗ trợ: ✅ đã chạy thử · 🟡 viết theo tài liệu, **chưa
 
 ## Linux
 - Kiểm tra phiên: `echo $XDG_SESSION_TYPE`. `x11` → dùng hotkey bình thường.
+- **Cài tích hợp một lệnh**: `./run.sh install-integration` (AppImage: `./MagicHub-x86_64.AppImage install-integration`) ghi autostart + mục Nautilus (Scripts) / Nemo (chuột phải) / Dolphin (Service menu). Gỡ: thêm `--remove`.
 - **Wayland (Ubuntu 22.04+ mặc định)**: chọn "Ubuntu on Xorg" ở màn hình đăng nhập, hoặc dùng đường dự phòng Nautilus script (bấm chuột để chọn):
   ```bash
   mkdir -p ~/.local/share/nautilus/scripts
@@ -43,3 +44,15 @@ Mức hỗ trợ: ✅ đã chạy thử · 🟡 viết theo tài liệu, **chưa
 - Tool gửi **Cmd+C** thay vì Ctrl+C.
 - Modifier `ctrl`/`alt` giữ nguyên nghĩa Control/Option; `cmd` = ⌘.
 - Đóng gói `.app` chưa làm (v0.4). Hiện chạy qua terminal/venv.
+
+## Wayland chi tiết (v0.4, chưa chạy thử)
+- Daemon phát hiện `XDG_SESSION_TYPE=wayland`: **không bật hotkey** (pynput chỉ thấy phím của cửa sổ XWayland), hiện thông báo hướng dẫn; tray vẫn chạy.
+- `menu FILE...` chạy Qt bằng XWayland (`QT_QPA_PLATFORM=xcb`): vòng tròn mở **giữa màn hình** (Wayland không cho đọc/đặt vị trí con trỏ), di chuột vào vòng rồi **click** tác vụ.
+- Chưa làm: hotkey toàn cục qua portal `org.freedesktop.portal.GlobalShortcuts` (cần GNOME 48+/KDE 6; Ubuntu 22.04 không có) và gửi Ctrl+C qua RemoteDesktop portal.
+
+## Đóng gói (CI: `.github/workflows/release.yml`, đẩy tag `v*`)
+| OS | Sản phẩm | Ghi chú |
+|---|---|---|
+| Windows | `MagicHub-Setup.exe` (Inno Setup, không cần admin; tuỳ chọn tự chạy + Send to) và `MagicHub-windows.zip` | Chưa ký số → SmartScreen cảnh báo |
+| Linux | `MagicHub-x86_64.AppImage` và `MagicHub-linux.tar.gz` | |
+| macOS | `MagicHub-macos.dmg` (`.app` chạy ở thanh menu, ký ad-hoc) | Chưa notarize: chuột phải → Open lần đầu; cấp Accessibility + Input Monitoring |

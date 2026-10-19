@@ -6,6 +6,10 @@ import os
 import sys
 from pathlib import Path
 
+def is_wayland() -> bool:
+    return sys.platform.startswith("linux") and os.environ.get("XDG_SESSION_TYPE") == "wayland"
+
+
 DEFAULT = {"hotkey": {"modifiers": ["ctrl", "alt", "shift"], "key": ""}, "output_dir": None}
 
 
