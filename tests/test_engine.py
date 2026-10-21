@@ -363,6 +363,32 @@ def test_v07(td):
     assert "heic" in __import__("magichub.actions.base", fromlist=["x"]).KINDS["img"]
 
 
+def test_ask_form():
+    """Mọi kiểu ô nhập (text/password/choice/int/multiline) phải đóng được bằng OK; lỗi trong slot accept() làm OK im lặng."""
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QLineEdit
+    from magichub.dialogs import ask_form
+    app = QApplication.instance() or QApplication([])
+
+    def fill_ok(secret):
+        def go():
+            dlg = next(w for w in app.topLevelWidgets() if isinstance(w, QDialog) and w.isVisible())
+            for e in dlg.findChildren(QLineEdit):
+                e.setText(secret)
+            dlg.findChild(QDialogButtonBox).button(QDialogButtonBox.Ok).click()
+            QTimer.singleShot(300, lambda: dlg.reject() if dlg.isVisible() else None)  # kẹt thì thoát để test fail chứ không treo
+        QTimer.singleShot(250, go)
+
+    fill_ok("pw1")
+    assert ask_form("Mật khẩu", [{"name": "password", "label": "MK", "type": "password", "required": True}]) == {"password": "pw1"}
+    fill_ok("pw1")
+    assert ask_form("Gỡ", [{"name": "password", "label": "MK", "type": "text", "required": True}]) == {"password": "pw1"}
+    fill_ok("x")
+    got = ask_form("Hỗn hợp", [{"name": "a", "label": "A", "type": "text"}, {"name": "c", "label": "C", "type": "choice", "choices": ["u", "v"]},
+                               {"name": "n", "label": "N", "type": "int", "default": 3}, {"name": "m", "label": "M", "type": "multiline"}])
+    assert got == {"a": "x", "c": "u", "n": 3, "m": ""}, got
+
+
 def test_cropwidget():
     from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
     from PySide6.QtGui import QMouseEvent, QPixmap
@@ -588,6 +614,7 @@ if __name__ == "__main__":
             t(Path(d))
         print("ok", t.__name__)
     test_docx_progress_hook()
+    test_ask_form()
     test_cropwidget()
     print("ok test_cropwidget")
     print("ok test_geometry\nALL PASS")

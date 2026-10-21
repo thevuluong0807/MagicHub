@@ -99,8 +99,10 @@ def ask_form(title: str, fields: list[dict], hint: str = "", ok: str = "OK") -> 
     form.addRow(bb)
 
     def value(t, w):
-        return {"multiline": lambda: w.toPlainText(), "choice": w.currentText, "int": w.value,
-                "file": lambda: w.edit.text()}.get(t, getattr(w, "text", None))()
+        # Lambda lười: dict literal tính mọi giá trị, nên w.currentText/w.value trên QLineEdit sẽ ném AttributeError
+        # (OK không đóng hộp thoại; lỗi nằm trong slot nên chỉ in ra console).
+        return {"multiline": lambda: w.toPlainText(), "choice": lambda: w.currentText(), "int": lambda: w.value(),
+                "file": lambda: w.edit.text()}.get(t, lambda: w.text())()
 
     def accept():
         for f in fields:

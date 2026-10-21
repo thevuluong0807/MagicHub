@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.9.0**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.9.1**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -20,6 +20,9 @@
 
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
+
+## 2026-10-21 — v0.9.1
+- Hotfix Protect/Unlock: bấm OK không đóng hộp thoại. `ask_form.value()` dựng dict có `w.currentText`/`w.value` tính ngay nên `QLineEdit` ném `AttributeError` trong slot `accept()` (chỉ in ra console). Nay dùng lambda. Test `test_ask_form`.
 
 ## 2026-10-19 — v0.9.0
 - Tự cập nhật (`updater.py`, không import Qt): hỏi GitHub API `releases/latest` (stdlib urllib, lỗi mạng = im lặng). Có bản mới → thẻ + mục khay "⬆ Cập nhật lên vX". AppImage: tải bản mới (có %, huỷ được), thay file đang chạy, khởi động lại sau 2 s. Windows đã đóng gói: tải và chạy `MagicHub-Setup.exe /SILENT`. macOS/source: mở trang Release. Config `update_check`, `last_update_check` (≤1 lần/ngày); menu khay "Kiểm tra cập nhật". Chưa có kiểm checksum/chữ ký (Release chưa công bố checksum). Test `test_updater` (server cục bộ, huỷ giữa chừng). Windows/macOS chưa thử thật.
