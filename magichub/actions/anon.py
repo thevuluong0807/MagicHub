@@ -64,6 +64,13 @@ def anonymize(files, p):
         mapper.hits.clear()
         an.transform(f, out, mapper.find, scrub=p.get("scrub", True))
         an.write_mapping(_mapping_path(out), mapper.rows(), an.leak_report(out, mapper), f.name)
+        if p.get("password"):  # không có mật khẩu thì không mở được bảng, nên không giải mã được
+            from .. import wordlock
+
+            plain = _mapping_path(out)
+            enc = plain.with_name(plain.stem + ".enc")
+            wordlock.encrypt(plain, enc, p["password"])
+            enc.replace(plain)
         outs += [out, _mapping_path(out)]
     return outs
 
@@ -76,8 +83,19 @@ def _ask_restore(files):
         if not m.exists():
             break
     else:
-        return {"mapping": str(_mapping_path(files[0])), "auto": True}
-    return ask_mapping()
+        res = {"mapping": str(_mapping_path(files[0])), "auto": True}
+        if any(an.is_encrypted(_mapping_path(f)) for f in files):
+            return _with_password(res)
+        return res
+    res = ask_mapping()
+    return _with_password(res) if res and an.is_encrypted(Path(res["mapping"])) else res
+
+
+def _with_password(res):
+    from ..dialogs import ask_password
+
+    pw = ask_password("Bảng mapping có mật khẩu")
+    return {**res, "password": pw} if pw else None
 
 
 @action("edit.restore", "edit", "Giải mã", "Trả lại tên/đơn vị gốc từ các mã [PERSON_1]… bằng bảng mapping (tự tìm cạnh file, hoặc chọn file mapping)",
@@ -90,7 +108,7 @@ def restore(files, p):
             m = _mapping_path(f)
         if not m.exists():
             raise ValueError(f"{f.name}: không thấy bảng mapping ({m.name})")
-        mapping = an.read_mapping(m)
+        mapping = an.read_mapping(m, p.get("password"))
         out = out_path(f, "restored")
         if an.transform(f, out, an.restore_finder(mapping), restore=True) == 0:
             out.unlink(missing_ok=True)

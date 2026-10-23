@@ -131,6 +131,11 @@ def test_detect_lowercase_path_and_military_org(td):
     assert got["Cục tác chiến điện tử"].kind == "ORG"
     assert got["Viettel"].kind == "ORG"
     assert "Phòng ngừa" not in got and "Ban hành" not in got
+    # mã dính liền chữ khác: BVLclient, BVLClient, myBVL, BVL_server đều bị mã hoá; BVL2/BVLC/XBVL (mã khác) thì không
+    m = an.Mapper([("BVL", "PROJECT", None)])
+    for text, n in (("BVL Client", 1), ("BVLclient", 1), ("BVLClient", 1), ("myBVL", 1), ("BVL_server", 1), ("BVL2", 0), ("BVLC", 0), ("XBVL", 0), ("bvlclient", 0)):
+        assert len(m.find(text)) == n, text
+    assert [c.value for c in an.detect(["BVL a", "BVLclient b"])] == ["BVL"]  # 1 lần đứng riêng + 1 lần dính liền = mã lặp lại
 
 
 def test_word_lock(td):
@@ -212,6 +217,17 @@ def test_anonymize(td):
     # Restore: tự tìm mapping cạnh file; kết quả giống hệt bản gốc theo từng đoạn
     (back,) = run("edit.restore", [anon], mapping=str(mp), auto=True)
     assert an.read_text(back) == an.read_text(src)
+    # bảng mapping có mật khẩu: thiếu/sai mật khẩu thì không giải mã được, đúng thì ra bản gốc
+    (anon2, mp2) = run("edit.anonymize", [src], entries=entries, custom=["Sao Mai"], password="khoa123")
+    assert an.is_encrypted(mp2) and not an.is_encrypted(mp)
+    for pw, msg in ((None, "cần nhập mật khẩu"), ("sai", "sai mật khẩu")):
+        try:
+            run("edit.restore", [anon2], mapping=str(mp2), auto=True, **({"password": pw} if pw else {}))
+            raise AssertionError("phải báo lỗi")
+        except ValueError as e:
+            assert msg in str(e), e
+    (back2,) = run("edit.restore", [anon2], mapping=str(mp2), auto=True, password="khoa123")
+    assert an.read_text(back2) == an.read_text(src)
     # AI bỏ ngoặc vuông / đổi hoa thường: vẫn khôi phục được
     t = td / "ai.txt"
     t.write_text("Theo PERSON_1 và [org_1], mã project_1 đã ký.", "utf-8")
@@ -395,7 +411,7 @@ Dự án BVL: mã BVL-GN-CNP, BVL-GN-CKT. BVL BVL. TDOA (Time Difference of Arri
 def test_dictionary_dialogs(td):
     """Hộp thoại quản lý từ điển (tạo, thêm dòng, nhập file, lưu config) + checkbox 'Dùng từ điển' trong hộp Mã hoá."""
     from PySide6.QtCore import QTimer
-    from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QInputDialog, QListWidget,
+    from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QInputDialog, QLineEdit, QListWidget,
                                    QPushButton, QTableWidget, QTableWidgetItem)
     from magichub import anonymize as an, config, dialogs
     from magichub.actions.anon import entries_from
@@ -436,6 +452,7 @@ def test_dictionary_dialogs(td):
                 c = next(x for x in d.findChildren(QCheckBox) if x.text().startswith("Dùng từ điển"))
                 assert c.isEnabled() and c.isChecked()  # có từ điển -> mặc định bật
                 c.setChecked(use)
+                next(e for e in d.findChildren(QLineEdit) if e.echoMode() == QLineEdit.Password).setText("pw")  # mật khẩu mapping bắt buộc
                 d.findChild(QDialogButtonBox).button(QDialogButtonBox.Ok).click()
             QTimer.singleShot(300, go)
 
@@ -447,6 +464,13 @@ def test_dictionary_dialogs(td):
         drive_anon(False)
         assert dialogs.ask_anonymize(cands)["dictionary"] == "" and config.load()["anonymize_use_dict"] is False
 
+        def go_pw():
+            d = top()
+            next(e for e in d.findChildren(QLineEdit) if e.echoMode() == QLineEdit.Password).setText("abc")
+            d.findChild(QDialogButtonBox).button(QDialogButtonBox.Ok).click()
+        QTimer.singleShot(300, go_pw)
+        assert dialogs.ask_anonymize(cands)["password"] == "abc"
+
         # 3) chưa có từ điển nào: checkbox bị khoá, không lỗi
         cfg = config.load()
         cfg["anonymize_dicts"] = {}
@@ -456,6 +480,7 @@ def test_dictionary_dialogs(td):
             d = top()
             c = next(x for x in d.findChildren(QCheckBox) if x.text().startswith("Dùng từ điển"))
             assert not c.isEnabled() and not c.isChecked()
+            next(e for e in d.findChildren(QLineEdit) if e.echoMode() == QLineEdit.Password).setText("pw")
             d.findChild(QDialogButtonBox).button(QDialogButtonBox.Ok).click()
 
         QTimer.singleShot(300, go2)

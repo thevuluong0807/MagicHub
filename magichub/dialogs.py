@@ -637,10 +637,18 @@ def ask_anonymize(cands) -> dict | None:
     scrub = QCheckBox("Xoá metadata tác giả/công ty của file")
     scrub.setChecked(True)
     lay.addWidget(scrub)
+    lay.addWidget(QLabel("Mật khẩu bảng mapping (bắt buộc - bảng chứa giá trị gốc, không khoá thì AI đọc được; mất mật khẩu là không giải mã được):"))
+    pw = QLineEdit()
+    pw.setEchoMode(QLineEdit.Password)
+    lay.addWidget(pw)
     lay.addWidget(buttons(dlg, "Mã hoá"))
     _front(dlg)
-    if dlg.exec() != QDialog.Accepted:
-        return None
+    while True:
+        if dlg.exec() != QDialog.Accepted:
+            return None
+        if pw.text():
+            break
+        QMessageBox.warning(dlg, "Mã hoá", "Phải đặt mật khẩu cho bảng mapping.")  # giữ nguyên các mục đã tick
     entries = [{"value": c.value, "kind": c.kind, "alias_of": c.alias_of} for r, c in enumerate(cands) if table.item(r, 0).checkState() == Qt.Checked]
     name = combo.currentText() if use_dict.isChecked() and combo.count() else ""
     cfg = config.load()
@@ -652,7 +660,13 @@ def ask_anonymize(cands) -> dict | None:
             have = {parse_dict_line(l)[1].lower() for l in lines}
             lines += [format_dict_line(e["kind"], e["value"]) for e in entries if e["value"].lower() not in have]
     config.save(cfg)
-    return {"entries": entries, "custom": [], "dictionary": name, "scrub": scrub.isChecked()}
+    return {"entries": entries, "custom": [], "dictionary": name, "scrub": scrub.isChecked(), "password": pw.text()}
+
+
+def ask_password(title: str) -> str | None:
+    """Hỏi một mật khẩu (ẩn ký tự); None = huỷ hoặc để trống."""
+    text, ok = QInputDialog.getText(None, title, "Mật khẩu:", QLineEdit.Password)
+    return text if ok and text else None
 
 
 def ask_mapping() -> dict | None:

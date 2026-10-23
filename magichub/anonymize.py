@@ -290,6 +290,14 @@ def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidat
         rx = _fold_rx([fold_key(v)]) if fold_key(v) else None
         return len(rx.findall(ftext)) if rx else 0
 
+    def n_glued(v):
+        """Số lần v xuất hiện dính liền chữ khác ("BVLclient"): cũng là bằng chứng v là một mã."""
+        k = fold_key(v)
+        if not re.fullmatch(r"[a-z\d]{3,10}", k):
+            return 0
+        glued = lambda a, b: (a > 0 and (text[a - 1].isalnum() or text[a - 1] == "_")) or (b < len(text) and (text[b].isalnum() or text[b] == "_"))
+        return sum(glued(a, b) for a, b, _ in glue_hits(text, re.compile(re.escape(k))))
+
     # Tiền tố của mã có gạch nối (BVL trong BVL-GN-CNP) luôn là Mã dù có trong bảng thuật ngữ
     prefixes = set()
     for v, (kind, _) in found.items():
@@ -312,7 +320,7 @@ def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidat
     keys = {fold_key(v) for v in found}
     for m in RX_ACRONYM.finditer(text):
         a = m.group(0)
-        if a not in ACRONYM_SKIP and a.lower() not in FORM_WORDS and fold_key(a) not in keys and sum(ch.isalpha() for ch in a) >= 2 and n_of(a) >= 2 and not lower_seen(a) and not is_vn_syllable(a):
+        if a not in ACRONYM_SKIP and a.lower() not in FORM_WORDS and fold_key(a) not in keys and sum(ch.isalpha() for ch in a) >= 2 and n_of(a) + n_glued(a) >= 2 and not lower_seen(a) and not is_vn_syllable(a):
             tech = fold_key(a) not in prefixes and (a in TECH_TERMS or fold_key(a) in defined)
             found[a] = ("TECH", False) if tech else ("PROJECT", True)
             keys.add(fold_key(a))
@@ -423,6 +431,23 @@ def _fold_rx(keys):
     return re.compile("|".join(parts)) if parts else None
 
 
+def glue_hits(text: str, rx, taken: list[tuple[int, int]] = ()) -> list[tuple[int, int, str]]:
+    """Mã viết hoa dính liền chữ khác: "BVLclient", "BVLClient", "myBVL", "BVL_server" -> (đầu, cuối, khoá gấp). Chỉ nhận khi mã đứng nguyên dạng IN HOA
+    và không kéo dài một cụm in hoa/số khác (không khớp "BVLC", "BVL2", "XBVL")."""
+    folded, origin = fold_map(text)
+    out = []
+    for m in rx.finditer(folded):
+        a, b = origin[m.start()], origin[m.end() - 1] + 1
+        if not text[a:b].isupper() or any(a < te and ts < b for ts, te in taken):
+            continue
+        left_ok = a == 0 or not (text[a - 1].isupper() or text[a - 1].isdigit())
+        nxt = text[b] if b < len(text) else ""
+        right_ok = not nxt or nxt == "_" or not nxt.isalnum() or nxt.islower() or (nxt.isupper() and b + 1 < len(text) and text[b + 1].islower())
+        if left_ok and right_ok:
+            out.append((a, b, m.group(0)))
+    return out
+
+
 class Mapper:
     """Mã hoá: khớp KHÔNG phân biệt hoa thường/dấu/khoảng trắng/gạch nối. Mỗi dạng chữ khác dạng chuẩn (VIETTEL, viettel, "Viet tel"…)
     nhận mã biến thể [ORG_1v1] để Restore trả đúng nguyên văn từng chỗ."""
@@ -432,6 +457,8 @@ class Mapper:
         self.kinds = {e[0]: e[1] for e in entries if e[0] in self.base}
         self.by_key = {fold_key(v): v for v in self.base}
         self.rx = _fold_rx(list(self.by_key))
+        glue = [k for k in self.by_key if re.fullmatch(r"[a-z\d]{3,10}", k) and self.kinds.get(self.by_key[k]) == "PROJECT"]  # mã dính liền chữ khác
+        self.glue_rx = re.compile("|".join(sorted(map(re.escape, glue), key=len, reverse=True))) if glue else None
         self.table = dict(self.base)  # dạng chữ thực tế -> mã (gồm biến thể)
         self.variant_of: dict[str, str] = {}  # biến thể -> giá trị chuẩn
         self.n: Counter = Counter()
@@ -441,13 +468,16 @@ class Mapper:
         if not self.rx:
             return []
         folded, origin = fold_map(text)
-        out = []
+        spans = []
         for m in self.rx.finditer(folded):
-            if m.end() <= m.start():
-                continue
-            s, e = origin[m.start()], origin[m.end() - 1] + 1
+            if m.end() > m.start():
+                spans.append((origin[m.start()], origin[m.end() - 1] + 1, " ".join(m.group(0).split())))
+        if self.glue_rx:
+            spans += glue_hits(text, self.glue_rx, [(a, b) for a, b, _ in spans])
+        out = []
+        for s, e, key in sorted(spans):
             surface = text[s:e]
-            canon = self.by_key[" ".join(m.group(0).split())]
+            canon = self.by_key[key]
             tok = self.table.get(surface)
             if tok is None:
                 if not create:
@@ -587,11 +617,34 @@ def write_mapping(path: Path, rows: list[tuple], leaks: list[str], source: str):
     wb.save(path)
 
 
-def read_mapping(path: Path) -> dict[str, str]:
-    """-> {giá trị gốc: mã}"""
+def is_encrypted(path: Path) -> bool:
+    """Bảng mapping có mật khẩu mở file (container OLE thay vì zip)."""
+    with open(path, "rb") as f:
+        return f.read(4) == b"\xd0\xcf\x11\xe0"
+
+
+def read_mapping(path: Path, password: str | None = None) -> dict[str, str]:
+    """-> {giá trị gốc: mã}. Bảng có mật khẩu: cần `password` (sai -> ValueError)."""
+    import io
+
     import openpyxl
 
-    ws = openpyxl.load_workbook(path, read_only=True)["Mapping"]
+    src = path
+    if is_encrypted(path):
+        if not password:
+            raise ValueError(f"{Path(path).name}: bảng mapping có mật khẩu - cần nhập mật khẩu để giải mã")
+        import tempfile
+
+        from . import wordlock
+
+        tmp = Path(tempfile.mkdtemp()) / "m.xlsx"
+        try:
+            wordlock.unlock(Path(path), tmp, password)
+            src = io.BytesIO(tmp.read_bytes())
+        finally:
+            tmp.unlink(missing_ok=True)
+            tmp.parent.rmdir()
+    ws = openpyxl.load_workbook(src, read_only=True)["Mapping"]
     out = {}
     for row in ws.iter_rows(min_row=2, values_only=True):
         if row and row[0] and row[1] is not None:

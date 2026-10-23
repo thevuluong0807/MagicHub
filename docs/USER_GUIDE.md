@@ -73,7 +73,8 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 
 
 ## Mã hoá văn bản (Anonymize / Restore)
-- **Bảng mapping chứa dữ liệu gốc**: giữ riêng, không gửi kèm văn bản đã mã hoá. Sheet "Lưu ý" trong file liệt kê chỗ còn sót.
+- **Bảng mapping chứa dữ liệu gốc nên luôn được đặt mật khẩu mở file** (bắt buộc khi Mã hoá; Giải mã sẽ hỏi lại mật khẩu). Mất mật khẩu là không giải mã được. Vẫn không nên gửi kèm văn bản đã mã hoá. Sheet "Lưu ý" trong file liệt kê chỗ còn sót.
+- Mã dính liền chữ khác (`BVLclient`, `BVLClient`, `myBVL`, `BVL_server`) cũng được mã hoá khi `BVL` là một mã; `BVL2`, `BVLC` là mã khác nên không bị đụng.
 - Loại hiển thị: Người, Tổ chức, Mã (chọn sẵn; gồm viết tắt IN HOA lặp ≥ 2 lần chưa rõ nghĩa như BVL, BV3C, và mã có gạch nối như BVL-GN-CNP), Thuật ngữ (FPGA, TDOA…: bảng thuật ngữ có sẵn hoặc được định nghĩa tiếng Anh trong văn bản; không chọn sẵn), Biến/định danh (FFT_WINDOW_FLAT, getUserName; không chọn sẵn), Địa danh (không chọn sẵn), Email, SĐT, Số định danh, URL, IP, Cụm lặp (không chọn sẵn). Nhãn biểu mẫu và tiêu đề thông dụng ("Ngày soạn", "Phạm vi", "HÌNH") được lọc, mỗi loại có độ dài tối thiểu riêng.
 - Tự dò: email, URL, IP, SĐT, số CCCD/CMND, mã dạng `BVL-2026-01`, tên đơn vị (Công ty/Tập đoàn/Viện… + tên), tên người (họ phổ biến hoặc sau Ông/Bà/TS…), cụm viết hoa lặp lại, viết tắt in hoa lặp ≥ 3 lần. Có thể sót hoặc nhầm: luôn xem lại bảng gợi ý.
 - Dạng gọi tắt ("Viettel" từ "Tập đoàn Viettel") được dò thành mục riêng, cùng họ mã: `[ORG_1]` và `[ORG_1s]`, nên AI thấy là cùng một đơn vị còn Restore vẫn trả đúng từng dạng.
