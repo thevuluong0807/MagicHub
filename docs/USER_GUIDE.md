@@ -33,7 +33,7 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 | Mã hoá | Ẩn danh hoá văn bản trước khi gửi AI/bên ngoài: thay tên người, đơn vị, mã dự án, email, SĐT… bằng mã `[PERSON_1]`, `[ORG_2]`… (docx, xlsx, pptx, txt, md). Ra 2 file: `x_anon.docx` + `x_anon_mapping.xlsx` | Bảng gợi ý tự dò (tick/bỏ, xem số lần), ô thêm tay (nhớ lại lần sau), xoá metadata tác giả/công ty |
 | Giải mã | Trả lại giá trị gốc cho file đã mã hoá hoặc bản AI trả về (chịu được AI bỏ ngoặc `[]`/đổi hoa thường) | Tự tìm `x_anon_mapping.xlsx` cạnh file; không có thì hỏi chọn file mapping |
 | OCR | PDF scan → PDF chọn/copy được chữ (cần Tesseract) | — |
-| Protect | PDF: đặt mật khẩu mở. Word (.docx): khoá chỉ-đọc (Restrict Editing), cần mật khẩu mới sửa được | Mật khẩu 2 lần |
+| Protect | PDF, Word, Excel, PowerPoint (.docx/.xlsx/.pptx): đặt mật khẩu mở file (mã hoá thật) | Mật khẩu 2 lần |
 | Redact | Che đen + xoá thật nội dung khớp từ khoá và/hoặc vùng tự kéo; có bước xem trước | Từ khoá (tuỳ chọn), rồi xem trước: khung cam = khớp, kéo chuột thêm vùng đen |
 | Markup | Trình soạn cho PDF **và ảnh**: Bút, Hình (chữ nhật, elip, đường, mũi tên, tô nền), Chữ (kể cả watermark chéo), Ghi chú, Ảnh (logo/chữ ký), Khung viền | Chọn công cụ, màu, nét; bấm/kéo trên trang. "Mọi trang" áp chữ/ảnh/hình/khung cho cả file. Ctrl+Z hoàn tác, PgUp/PgDn đổi trang |
 | Reorder | Đổi thứ tự / xoay / xoá trang PDF (1 file) | Kéo thả ảnh thu nhỏ; chọn + Xoay phải/trái hoặc Xoá |
@@ -43,7 +43,7 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 | Số trang | Header/footer | `{n}` trang, `{N}` tổng |
 | Strip | Xoá metadata | Ảnh: EXIF/GPS; PDF: tác giả, XML, JS |
 | Flatten | Ép ghi chú/form | Không sửa lại được |
-| Unlock | Gỡ mật khẩu PDF; Word: gỡ mật khẩu mở file hoặc khoá chỉ-đọc | Cần mật khẩu hiện tại |
+| Unlock | Gỡ mật khẩu mở PDF/Word/Excel/PowerPoint, hoặc khoá chỉ-đọc Word | Cần mật khẩu hiện tại |
 | Compare | So 2 PDF | Chọn đúng 2 file; kết quả tô đỏ chỗ khác |
 
 ## Dòng lệnh

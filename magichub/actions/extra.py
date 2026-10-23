@@ -91,18 +91,18 @@ def flatten(files, p):
 
 
 # ---------- Unlock ----------
-@action("edit.unlock", "edit", "Unlock", "Gỡ mật khẩu PDF hoặc khoá chỉ-đọc Word (.docx) (cần biết mật khẩu hiện tại)", kinds=PDF + ("doc",), check=lambda fs: all(ext(f) in ("pdf", "docx") for f in fs),
+@action("edit.unlock", "edit", "Unlock", "Gỡ mật khẩu mở file PDF/Word/Excel/PowerPoint, hoặc khoá chỉ-đọc Word (cần biết mật khẩu hiện tại)", kinds=PDF + ("doc", "xls", "ppt"), check=lambda fs: all(ext(f) in ("pdf", "docx", "xlsx", "pptx") for f in fs),
         ask=_form("Gỡ mật khẩu", [{"name": "password", "label": "Mật khẩu hiện tại", "type": "text", "required": True}]))
 def unlock(files, p):
     outs = []
     for f in files:
-        if ext(f) == "docx":
+        if ext(f) != "pdf":
             from .. import wordlock
 
             o = out_path(f, "unlocked")
             if not wordlock.unlock(f, o, p["password"]):
                 o.unlink()
-                raise ValueError(f"{f.name}: file không bị khoá chỉnh sửa")
+                raise ValueError(f"{f.name}: file không đặt mật khẩu hoặc khoá chỉnh sửa")
             outs.append(o)
             continue
         doc = pymupdf.open(str(f))

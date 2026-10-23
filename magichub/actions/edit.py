@@ -29,16 +29,16 @@ def _words(s: str) -> list[str]:
 
 
 # ---------- Protect ----------
-@action("edit.protect", "edit", "Protect", "PDF: đặt mật khẩu mở (AES-256). Word (.docx): khoá chỉ-đọc, cần mật khẩu mới sửa được", kinds=PDF + ("doc",), check=lambda fs: all(ext(f) in ("pdf", "docx") for f in fs),
+@action("edit.protect", "edit", "Protect", "Đặt mật khẩu mở file: PDF (AES-256), Word/Excel/PowerPoint (.docx/.xlsx/.pptx) - không có mật khẩu thì không đọc được", kinds=PDF + ("doc", "xls", "ppt"), check=lambda fs: all(ext(f) in ("pdf", "docx", "xlsx", "pptx") for f in fs),
         ask=_form("Đặt mật khẩu", [{"name": "password", "label": "Mật khẩu", "type": "password", "required": True}]))
 def protect(files, p):
     outs = []
     for f in steps(files):
-        if ext(f) == "docx":
+        if ext(f) != "pdf":
             from .. import wordlock
 
-            outs.append(out_path(f, "locked"))
-            wordlock.lock(f, outs[-1], p["password"])
+            outs.append(out_path(f, "protected"))
+            wordlock.encrypt(f, outs[-1], p["password"])
             continue
         doc = open_pdf(f)
         outs.append(save_pdf(doc, out_path(f, "protected"), encryption=pymupdf.PDF_ENCRYPT_AES_256,
