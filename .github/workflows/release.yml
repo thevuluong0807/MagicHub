@@ -46,9 +46,12 @@ jobs:
             sudo apt-get install -y --no-install-recommends xvfb >/dev/null
             RUN="xvfb-run -a"
           fi
-          MAGICHUB_SMOKE="$PWD/smoke.txt" QT_QPA_PLATFORM=offscreen timeout 300 $RUN "$EXE" || true
+          MAGICHUB_SMOKE="$PWD/smoke.txt" QT_QPA_PLATFORM=offscreen timeout 300 $RUN "$EXE" > smoke.log 2>&1 || true
           cat smoke.txt  # không có file = app chết trước khi chạy được (cũng coi là lỗi)
-          grep -q '^ok' smoke.txt
+          if ! grep -q '^ok' smoke.txt 2>/dev/null; then  # ghi nguyên nhân vào annotation (đọc được không cần quyền xem log)
+            echo "::error::smoke FAIL: $(head -c 1200 smoke.txt 2>/dev/null | tr '\n' '|') LOG: $(tail -c 900 smoke.log | tr '\n' '|')"
+            exit 1
+          fi
       - name: Windows installer
         if: matrix.name == 'windows'
         continue-on-error: true  # lỗi installer không chặn zip lên Release
