@@ -21,6 +21,9 @@
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
 
+## 2026-10-23 — chưa phát hành (sau v0.9.3)
+- Tối ưu dò mã hoá (thử trên Dau B_11…docx: 168 → 69 ứng viên, hết nhiễu): `common()` loại nhãn/tiêu đề thông dụng ("Ngày soạn", "Phạm vi", "Hệ Thống": từ nhãn `FORM_WORDS` hoặc dạng chữ thường có trong văn bản); `is_vn_syllable` loại tiêu đề IN HOA là chữ Việt (HÌNH, CAO, BAY) khỏi viết tắt, giữ BVL/MHTH/UAV/GNSS làm mã dự án (chọn sẵn); IP phải hợp lệ (bỏ số mục 5.8.9.3); khớp không vắt qua dòng/ô bảng (`SP`); tên tổ chức dài có chữ thường (`ORG_WORDS`, `clean_org` cắt đuôi/từ khoá thứ hai); loại "Đơn vị" đổi thành "Tổ chức"; địa danh tách riêng (`PLACE`, không chọn sẵn); `MIN_LEN` độ dài tối thiểu theo loại; cụm viết hoa lặp (TERM) không chọn sẵn. Test `test_anonymize_detect_quality`.
+
 ## 2026-10-23 — v0.9.3
 - Sửa nháy cửa sổ PowerShell/console trên Windows: `base.NO_WINDOW` (CREATE_NO_WINDOW) cho `run_proc`, taskkill, tesseract, updater; PowerShell `-WindowStyle Hidden`. Test `test_no_console_window` (giả Popen). Chưa thử trên Windows thật.
 - Mã hoá clipboard (menu khay, `app.py`: `anon_clipboard`/`restore_clipboard`/`clear_clip_mapping`, mapping gần nhất ở `clipboard_mapping.json`); gộp họ mã gọi tắt (`Candidate.alias_of`, `[ORG_1]`/`[ORG_1s]`). Test `test_clipboard_anonymize`.

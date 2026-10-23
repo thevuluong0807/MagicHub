@@ -74,6 +74,7 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 
 ## Mã hoá văn bản (Anonymize / Restore)
 - **Bảng mapping chứa dữ liệu gốc**: giữ riêng, không gửi kèm văn bản đã mã hoá. Sheet "Lưu ý" trong file liệt kê chỗ còn sót.
+- Loại hiển thị: Người, Tổ chức, Địa danh (không chọn sẵn), Mã dự án (gồm viết tắt IN HOA lặp ≥ 3 lần như BVL, MHTH), Email, SĐT, Số định danh, URL, IP, Cụm lặp (không chọn sẵn). Nhãn biểu mẫu và tiêu đề thông dụng ("Ngày soạn", "Phạm vi", "HÌNH") được lọc, mỗi loại có độ dài tối thiểu riêng.
 - Tự dò: email, URL, IP, SĐT, số CCCD/CMND, mã dạng `BVL-2026-01`, tên đơn vị (Công ty/Tập đoàn/Viện… + tên), tên người (họ phổ biến hoặc sau Ông/Bà/TS…), cụm viết hoa lặp lại, viết tắt in hoa lặp ≥ 3 lần. Có thể sót hoặc nhầm: luôn xem lại bảng gợi ý.
 - Dạng gọi tắt ("Viettel" từ "Tập đoàn Viettel") được dò thành mục riêng, cùng họ mã: `[ORG_1]` và `[ORG_1s]`, nên AI thấy là cùng một đơn vị còn Restore vẫn trả đúng từng dạng.
 - **Khớp không phân biệt hoa thường, dấu, khoảng trắng** (kể cả khoảng trắng đặc biệt, gạch nối lạ). "VIETTEL", "viettel", "Tap doan Viettel" đều bị mã hoá. Mỗi dạng viết khác dạng chuẩn có mã biến thể (`[ORG_1v1]`, `[ORG_1v2]`…) nên Restore trả đúng nguyên văn từng chỗ.

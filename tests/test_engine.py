@@ -249,6 +249,42 @@ def test_no_console_window(td):
     assert "Hidden" in inspect.getsource(office._office_run)  # PowerShell tự ẩn cửa sổ dù cờ nào
 
 
+def test_anonymize_detect_quality(td):
+    """Dò ít nhầm: nhãn biểu mẫu/cụm thông dụng không phải tên; BVL là mã dự án; địa danh tách riêng; nhãn loại là 'Tổ chức'."""
+    from magichub import anonymize as an
+    text = """HƯỚNG DẪN SỬ DỤNG 11.BVL HS
+Ngày soạn: 01/01/2026. Người duyệt: Trần Thị Bình. Người soạn: Nguyễn Văn An (Công ty TNHH Sao Mai).
+Phạm vi áp dụng. Trong phạm vi này, hệ thống BVL hỗ trợ. Ban hành kèm theo quyết định; ban hành lần đầu.
+Hệ Thống BVL chạy tại Hà Nội và Hà Nội. Tập đoàn Viettel và Viettel. Màn Hình Chính; màn hình chính.
+Hồ Sơ dự án; hồ sơ thầu. Công ty TNHH Sao Mai ký với Sao Mai. BVL BVL BVL. Công ty Cổ phần ABC Việt ký."""
+    got = {c.value: c for c in an.detect(text.splitlines())}
+    for noise in ("Ngày soạn", "Phạm vi", "Phạm vi áp dụng", "Ban hành", "Hệ Thống", "Màn Hình Chính", "Hồ Sơ", "Người duyệt", "Người soạn"):
+        assert noise not in got, noise
+    assert got["BVL"].kind == "PROJECT" and got["BVL"].checked and got["BVL"].count >= 4  # 3 ký tự vẫn đủ nghĩa nếu là mã lặp lại
+    assert got["Hà Nội"].kind == "PLACE" and not got["Hà Nội"].checked
+    assert got["Trần Thị Bình"].kind == "PERSON" and got["Công ty TNHH Sao Mai"].kind == "ORG"
+    assert got["Sao Mai"].alias_of == "Công ty TNHH Sao Mai"
+    assert "Tập đoàn Viettel" in got and "Tập đoàn Viettel và Viettel" not in got  # "và" không nối hai tổ chức thành một
+    assert "Công ty Cổ phần ABC Việt" in got and an.KIND_LABEL["ORG"] == "Tổ chức"
+    assert all(len(c.value) >= an.MIN_LEN.get(c.kind, 2) for c in got.values())
+
+    # tài liệu kiểu thật: tiêu đề in hoa là chữ Việt (không phải viết tắt), số mục không phải IP, tên tổ chức dài có chữ thường, không vắt qua dòng
+    doc = """HÌNH ẢNH HIỆN TẠI CỦA HỆ THỐNG. DIỄN GIẢI. CAO BAY. HÌNH HÌNH HIỆN HIỆN TẠI TẠI DIỄN DIỄN CAO CAO BAY BAY
+5.8.9.3 Huỷ mệnh lệnh; 1.1.1.4; Máy chủ 192.168.1.5 và 10.0.0.7 cổng 8080
+Để đáp ứng nhiệm vụ, Tổng Công ty Công nghiệp Công nghệ cao Viettel – Chi nhánh phía Nam ký. Tập đoàn Công nghiệp – Viễn thông Quân đội sản xuất thiết bị.
+Hệ thống MHTH kết nối UAV và GNSS. MHTH, MHTH, UAV, UAV, GNSS, GNSS.
+Trường
+Số Serial: 1; Sđ"""
+    g = {c.value: c for c in an.detect(doc.splitlines())}
+    for noise in ("HÌNH", "HIỆN", "TẠI", "DIỄN", "CAO", "BAY"):
+        assert noise not in g, noise
+    assert all(g[v].kind == "PROJECT" and g[v].checked for v in ("MHTH", "UAV", "GNSS"))
+    assert "192.168.1.5" in g and "10.0.0.7" in g and "5.8.9.3" not in g and "1.1.1.4" not in g
+    assert "Tổng Công ty Công nghiệp Công nghệ cao Viettel" in g and "Tập đoàn Công nghiệp – Viễn thông Quân đội" in g
+    assert not any("\n" in v or "Trường" in v for v in g)
+    assert an.is_vn_syllable("CHÍ") and an.is_vn_syllable("quân") and not an.is_vn_syllable("BVL") and not an.is_vn_syllable("UAV")
+
+
 def test_clipboard_anonymize(td):
     """Menu khay: mã hoá clipboard -> dán cho AI -> giải mã clipboard, bằng mapping gần nhất lưu cục bộ."""
     from PySide6.QtWidgets import QApplication
@@ -847,7 +883,7 @@ def test_hub_toast(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_compress_office_target, test_anonymize, test_clipboard_anonymize, test_no_console_window, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_compress_office_target, test_anonymize, test_anonymize_detect_quality, test_clipboard_anonymize, test_no_console_window, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)

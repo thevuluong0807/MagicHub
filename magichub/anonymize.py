@@ -27,30 +27,85 @@ TEXT = {"txt", "md"}
 SUPPORTED = OOXML | TEXT
 PROPS = {"docProps/core.xml": ("creator", "lastModifiedBy"), "docProps/app.xml": ("Company", "Manager")}
 
-PREFIX = {"PERSON": "PERSON", "ORG": "ORG", "PROJECT": "PROJECT", "EMAIL": "EMAIL", "PHONE": "PHONE", "URL": "URL", "ID": "ID",
+PREFIX = {"PERSON": "PERSON", "ORG": "ORG", "PLACE": "PLACE", "PROJECT": "PROJECT", "EMAIL": "EMAIL", "PHONE": "PHONE", "URL": "URL", "ID": "ID",
           "IP": "IP", "TERM": "TERM", "CUSTOM": "TERM"}
-KIND_LABEL = {"PERSON": "Người", "ORG": "Đơn vị", "PROJECT": "Mã dự án", "EMAIL": "Email", "PHONE": "SĐT", "URL": "URL", "ID": "Số định danh",
+KIND_LABEL = {"PERSON": "Người", "ORG": "Tổ chức", "PLACE": "Địa danh", "PROJECT": "Mã dự án", "EMAIL": "Email", "PHONE": "SĐT", "URL": "URL", "ID": "Số định danh",
               "IP": "IP", "TERM": "Cụm lặp", "CUSTOM": "Tự thêm"}
 
 UP = "A-ZÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬĐÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴ"
 SURNAMES = set("""Nguyễn Trần Lê Phạm Hoàng Huỳnh Phan Vũ Võ Đặng Bùi Đỗ Hồ Ngô Dương Lý Đào Đinh Lương Trịnh Đoàn Mai Tô Hà Lâm Châu Phùng Tạ Cao Quách
 Thái Triệu Tăng Lại Kiều Chu Từ Văn Diệp Giang La Mạc Ông Kim""".split()) - {"Văn", "Ông", "Kim"}
 TITLES = r"(?:Ông|Bà|Anh|Chị|Cô|Chú|Bác|Thầy|Đ/c|Đồng chí|TS\.?|PGS\.?|GS\.?|ThS\.?|KS\.?|CN\.?|Mr\.?|Mrs\.?|Ms\.?|Dr\.?|Prof\.?)"
+ORG_WORDS = ("công nghiệp|công nghệ|cao|viễn thông|quân đội|thương mại|dịch vụ|sản xuất|xây dựng|đầu tư|phát triển|kỹ thuật|trách nhiệm hữu hạn|một thành viên|"
+             "nông nghiệp|nông thôn|giáo dục|đào tạo|y tế|vận tải|thông tin|truyền thông|điện lực|năng lượng|khoa học|quốc gia|quốc tế|việt nam")
 ORG_KW = ("Tổng công ty|Công ty|Tập đoàn|Ngân hàng|Học viện|Trường|Viện|Trung tâm|Ủy ban|Uỷ ban|Hiệp hội|Bộ|Sở|Cục|Vụ|Ban|Phòng|Hội|Đoàn|Quân đoàn|Sư đoàn|Trung đoàn|"
           "Bệnh viện|Đài|Báo|Nhà máy|Xí nghiệp|Chi nhánh|Văn phòng")
+# Từ nhãn/biểu mẫu/giao diện: cụm chỉ gồm các từ này là tiêu đề, không phải tên riêng ("Ngày soạn", "Người duyệt", "Hệ thống")
+FORM_WORDS = set("""ngày tháng năm soạn duyệt kiểm tra người họ tên chức vụ đơn vị ghi chú mục đích kết quả mô tả yêu cầu chức năng hệ thống giao diện màn hình
+hình bảng trang phần chương điều khoản số tờ stt nội dung thông tin dữ liệu danh sách quản lý dùng tài khoản mật khẩu đăng nhập xuất thời gian địa chỉ điện thoại phiên
+bản tài liệu hướng dẫn sử dụng cài đặt cấu hình báo cáo thống kê tìm kiếm thêm sửa xóa xoá lưu hủy huỷ đồng ý xác nhận từ chối bước tiếp theo trước sau tổng cộng loại
+trạng thái mã giá trị lỗi cảnh báo thông báo kết thúc bắt đầu hiện tại mới cũ chung riêng chính phụ vai trò quyền hạn lịch sử nhật ký tình huống mục tiêu phạm vi áp dụng
+thuật ngữ viết tắt định nghĩa tham chiếu phụ lục tóm tắt giới thiệu tổng quan kiến trúc thiết kế kỹ thuật vận hành bảo trì khắc phục sự cố quy trình thao tác
+chỉnh duyệt phê trình ký nhận gửi nơi người lập chủ biên đầu cuối trái phải trên dưới""".split())
+PLACES = {s.lower() for s in """Hà Nội|Hải Phòng|Đà Nẵng|Cần Thơ|Huế|Hà Giang|Cao Bằng|Bắc Kạn|Tuyên Quang|Lào Cai|Điện Biên|Lai Châu|Sơn La|Yên Bái|Hoà Bình|Hòa Bình|Thái Nguyên|Lạng Sơn|Quảng Ninh|Bắc Giang|Phú Thọ|Vĩnh Phúc|Bắc Ninh|Hải Dương|Hưng Yên|Thái Bình|Hà Nam|Nam Định|Ninh Bình|Thanh Hoá|Thanh Hóa|Nghệ An|Hà Tĩnh|Quảng Bình|Quảng Trị|Thừa Thiên Huế|Quảng Nam|Quảng Ngãi|Bình Định|Phú Yên|Khánh Hoà|Khánh Hòa|Ninh Thuận|Bình Thuận|Kon Tum|Gia Lai|Đắk Lắk|Đắk Nông|Lâm Đồng|Bình Phước|Tây Ninh|Bình Dương|Đồng Nai|Bà Rịa Vũng Tàu|Long An|Tiền Giang|Bến Tre|Trà Vinh|Vĩnh Long|Đồng Tháp|An Giang|Kiên Giang|Hậu Giang|Sóc Trăng|Bạc Liêu|Cà Mau|Việt Nam|Nha Trang|Vũng Tàu|Biên Hoà|Biên Hòa|Phú Quốc""".split("|")}
 ACRONYM_SKIP = set("""API PDF SQL HTML CSS URL ID IP UI UX GPS USB HTTP HTTPS JSON XML CPU GPU RAM OK TCP UDP DNS VPN LAN WAN PC OS PNG JPG JPEG GIF TXT DOC DOCX XLS XLSX
 PPT PPTX CSV AI ML SMS PIN QR ATM AES RSA SSL TLS SSH FTP MAC LED LCD HD FHD UHD AM PM TV VN USD VND EUR NA N/A""".split())
 
 RX_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 RX_URL = re.compile(r"\b(?:https?://|www\.)[^\s<>\"')\]]+", re.I)
 RX_IP = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
-RX_PHONE = re.compile(r"(?<![\w.])(?:\+84|0084|0)[\s.-]?\d(?:[\s.-]?\d){8,9}(?!\w)(?!\.\d)")
+RX_PHONE = re.compile(r"(?<![\w.])(?:\+84|0084|0)[ .-]?\d(?:[ .-]?\d){8,9}(?!\w)(?!\.\d)")
 RX_ID = re.compile(r"(?<![\w.])\d{9}(?:\d{3})?(?!\w)(?!\.\d)")  # CCCD 12 số / CMND 9 số
 RX_CODE = re.compile(rf"(?<![\w-])(?:\d+\.)?[{UP}]{{2,}}\d*(?:[-_/.][{UP}0-9]+)+(?![\w-])")  # BVL-2026-01, 11.BVL-HS, VT/2026/05
-RX_ORG = re.compile(rf"\b(?:{ORG_KW})(?:\s+(?:[{UP}][\w&'’-]*|của|và|&|TNHH|CP|MTV))+(?:\s+\d+)?")
-RX_TITLED = re.compile(rf"\b{TITLES}\s+((?:[{UP}][^\W\d_]*)(?:\s+[{UP}][^\W\d_]*){{0,3}})")
+SP = r"[ \t\u00a0]+"  # cùng một dòng: tên không vắt qua đoạn/ô bảng khác
+RX_ORG = re.compile(rf"(?<!\w)(?=[{UP}])(?i:{ORG_KW})(?:{SP}(?:(?i:cổ{SP}phần)|(?i:{ORG_WORDS})(?![\w-])|(?i:và|của)(?={SP}(?:(?i:{ORG_WORDS})|[{UP}]\w*{SP}(?i:{ORG_WORDS}))(?![\w-]))|[{UP}][\w&'’-]*|&|[-–]|TNHH|CP|MTV))+(?:{SP}\d+)?")
+RX_TITLED = re.compile(rf"\b{TITLES}{SP}((?:[{UP}][^\W\d_]*)(?:{SP}[{UP}][^\W\d_]*){{0,3}})")
 RX_WORD = re.compile(r"[^\W_]+(?:[-'’][^\W_]+)*")
 RX_ACRONYM = re.compile(rf"(?<![\w-])[{UP}]{{3,8}}(?![\w-])")
+
+
+# độ dài tối thiểu (ký tự) để một giá trị đủ ngữ nghĩa theo loại: mã/viết tắt ngắn như "BVL" vẫn hợp lệ, cụm chữ thường phải dài hơn
+MIN_LEN = {"EMAIL": 6, "URL": 8, "IP": 7, "PHONE": 9, "ID": 9, "PROJECT": 3, "ORG": 3, "PERSON": 5, "PLACE": 4, "TERM": 6}
+
+
+def _is_ip(v: str) -> bool:
+    o = [int(x) for x in v.split(".")]
+    return all(x <= 255 for x in o) and (o[0] in (10, 127, 172, 192) or o[0] >= 100) and not any(len(x) > 1 and x[0] == "0" for x in v.split("."))
+
+
+_VOW = "aàáảãạăằắẳẵặâầấẩẫậeèéẻẽẹêềếểễệiìíỉĩịoòóỏõọôồốổỗộơờớởỡợuùúủũụưừứửữựyỳýỷỹỵ"
+RX_SYLLABLE = re.compile(rf"(?:ngh|ng|nh|ph|th|tr|ch|gh|gi|kh|qu|[bcdđghklmnpqrstvx])?[{_VOW}]+(?:ch|ng|nh|[cmnpt])?")
+
+
+def is_vn_syllable(word: str) -> bool:
+    """Một âm tiết tiếng Việt hợp lệ (CAO, BAY, CHÍ, DIỄN…): không phải viết tắt. BVL, MHTH, UAV, GNSS không khớp (không nguyên âm / vần cuối lạ)."""
+    return RX_SYLLABLE.fullmatch(word.lower()) is not None
+
+
+ORG_ENDERS = {"cao", "quân đội", "viễn thông", "việt nam", "quốc gia", "quốc tế", "y tế", "giáo dục", "thông tin", "truyền thông", "điện lực", "năng lượng",
+              "nông nghiệp", "nông thôn", "công nghệ cao"}
+_KW_FIRST = {k.split()[0].lower() for k in ORG_KW.split("|")}
+_RX_KW = re.compile(rf"(?<!\w)(?i:{ORG_KW})(?!\w)")
+
+
+def clean_org(text: str) -> str:
+    """Cắt tên tổ chức dò được: dừng trước từ khoá tổ chức thứ hai ("… Viettel – Chi nhánh"), bỏ nối dở, từ nhãn và đuôi chữ thường thông dụng ở cuối."""
+    first = _RX_KW.match(text)
+    if first:
+        nxt = _RX_KW.search(text, first.end())
+        if nxt:
+            text = text[:nxt.start()]
+    toks = re.split(SP, text.strip())
+    while len(toks) > 1:
+        last = toks[-1].lower()
+        two = " ".join(toks[-2:]).lower()
+        if last in ("-", "–", "&", "và", "của") or last in FORM_WORDS or last in _KW_FIRST:
+            toks.pop()
+        elif toks[-1][0].islower() and last not in ORG_ENDERS and two not in ORG_ENDERS:
+            toks.pop()  # "… Quân đội sản xuất": đuôi thường không phải tên
+        else:
+            break
+    return " ".join(toks)
 
 
 @dataclass
@@ -104,25 +159,48 @@ def read_text(path: Path) -> list[str]:
 # ---------- Dò ----------
 def detect(paragraphs: list[str]) -> list[Candidate]:
     """Gợi ý các giá trị nên mã hoá; `checked` = mặc định chọn. Người dùng xem lại trước khi áp dụng."""
+    paragraphs = [unicodedata.normalize("NFC", p) for p in paragraphs]  # file Word/PDF hay lẫn dạng tổ hợp: so khớp chữ thường cần cùng dạng
     text = "\n".join(paragraphs)
     found: dict[str, tuple[str, bool]] = {}
     alias: dict[str, str] = {}
 
+    def lower_seen(word):
+        """Từ in hoa mà dạng thường cũng xuất hiện ("HÌNH" ~ "hình") là chữ tiêu đề, không phải viết tắt."""
+        return re.search(rf"(?<!\w){re.escape(word.lower())}(?!\w)", text) is not None
+
     def add(value, kind, checked):
         value = value.strip(" \t.,;:")
-        if len(value) < 2 or value in found:
+        if len(value) < MIN_LEN.get(kind, 2) or value in found:
             return
         found[value] = (kind, checked)
 
+    def common(phrase):
+        """Cụm thông dụng (không phải tên riêng): từng xuất hiện viết thường trong văn bản ("phạm vi"), hoặc toàn từ nhãn/biểu mẫu ("Ngày soạn")."""
+        low = phrase.lower()
+        if low != phrase and re.search(rf"(?<!\w){re.escape(low)}(?!\w)", text):
+            return True
+        words = [w.lower() for w in RX_WORD.findall(phrase)]
+        return bool(words) and all(w in FORM_WORDS for w in words)
+
     for rx, kind in ((RX_EMAIL, "EMAIL"), (RX_URL, "URL"), (RX_IP, "IP"), (RX_PHONE, "PHONE"), (RX_ID, "ID"), (RX_CODE, "PROJECT")):
         for m in rx.finditer(text):
+            if kind == "IP" and not _is_ip(m.group(0)):  # số mục "5.8.9.3", phiên bản "1.1.1.4" không phải IP
+                continue
+            if kind == "PROJECT" and all(lower_seen(w) or is_vn_syllable(w) for w in re.findall(r"[^\W\d_]+", m.group(0))):  # "NGHIỆP-VIỄN": tiêu đề in hoa, không phải mã
+                continue
             add(m.group(0), kind, True)
     for m in RX_ORG.finditer(text):
-        add(m.group(0), "ORG", True)
-        core = re.sub(rf"^(?:{ORG_KW})\s+(?:(?:TNHH|CP|MTV)\s+)*|\s+(?:TNHH|CP|MTV)\b|\s+\d+$", "", m.group(0)).strip()  # dạng gọi tắt: "Tập đoàn Viettel" -> "Viettel"
-        if core != m.group(0) and len(core) >= 3 and core[0].isupper():
+        full = clean_org(m.group(0))
+        if " " not in full.strip():
+            continue
+        core = re.sub(rf"^(?i:{ORG_KW}){SP}(?:(?:TNHH|CP|MTV){SP})*|{SP}(?:TNHH|CP|MTV)\b|{SP}\d+$", "", full).strip()  # dạng gọi tắt: "Tập đoàn Viettel" -> "Viettel"
+        one_word_common = " " not in core and lower_seen(core)  # "Công ty Công", "Bộ Quốc": tên bị cụt ở một từ thông dụng
+        if common(full) or common(core) or one_word_common or all(is_vn_syllable(w) and w.lower() in FORM_WORDS for w in core.split()):
+            continue  # "Ban hành", "Phòng ngừa"… viết hoa đầu câu/tiêu đề
+        add(full, "ORG", True)
+        if core != full and len(core) >= 3 and core[0].isupper() and len(core.split()) <= 3 and not re.fullmatch(rf"(?i:{ORG_WORDS}|\s)+", core):
             add(core, "ORG", True)
-            alias.setdefault(core, m.group(0).strip(" \t.,;:"))
+            alias.setdefault(core, full.strip(" \t.,;:"))
     for m in RX_TITLED.finditer(text):
         add(m.group(1), "PERSON", True)
 
@@ -142,7 +220,11 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
             if 2 <= n <= 5:
                 phrase = line[words[i].start():words[j].end()]
                 first = words[i].group(0)
-                if first in SURNAMES and 2 <= n <= 4:
+                if phrase.lower() in PLACES:
+                    add(phrase, "PLACE", False)  # địa danh: không phải người/tổ chức, mặc định không mã hoá
+                elif common(phrase):
+                    pass  # nhãn, tiêu đề, cụm thông dụng
+                elif first in SURNAMES and 2 <= n <= 4:
                     add(phrase, "PERSON", True)
                 else:
                     add(phrase, "TERM", False)  # chốt `checked` theo số lần ở dưới
@@ -158,8 +240,8 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
     keys = {fold_key(v) for v in found}
     for m in RX_ACRONYM.finditer(text):
         a = m.group(0)
-        if a not in ACRONYM_SKIP and fold_key(a) not in keys and n_of(a) >= 3:
-            found[a] = ("TERM", False)
+        if a not in ACRONYM_SKIP and a.lower() not in FORM_WORDS and fold_key(a) not in keys and n_of(a) >= 3 and not lower_seen(a) and not is_vn_syllable(a):
+            found[a] = ("PROJECT", True)  # viết tắt in hoa lặp lại (BVL, MHTH…): mã dự án/đơn vị viết tắt
             keys.add(fold_key(a))
     groups: dict[str, list] = {}
     for v, (kind, checked) in found.items():
@@ -173,10 +255,10 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
         n = n_of(rep)
         if n == 0:
             continue
+        if kind in ("TERM", "PLACE") and n < 2:
+            continue
         if kind == "TERM":
-            if n < 2:
-                continue
-            checked = checked or (n >= 3 and " " in rep)
+            checked = False  # cụm viết hoa lặp (nhãn giao diện, tiêu đề…) nhiều khả năng không phải tên: để người dùng tự tick
         parent = next((alias[it[0]] for it in items if it[0] in alias), None)
         out.append(Candidate(rep, kind, n, checked, parent))
     # bỏ cụm con của một cụm đã dò cùng số lần (vd "Chí Minh" trong "Hồ Chí Minh")
