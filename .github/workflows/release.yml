@@ -10,7 +10,7 @@ jobs:
       matrix:
         include:
           - {os: windows-latest, name: windows}
-          - {os: ubuntu-22.04, name: linux}
+          - {os: ubuntu-latest, name: linux}
           - {os: macos-latest, name: macos}
     runs-on: ${{ matrix.os }}
     steps:
@@ -43,7 +43,7 @@ jobs:
           rm -f smoke.txt
           RUN=""
           if [ "${{ matrix.name }}" = linux ]; then  # pynput cần X server; runner không có
-            sudo apt-get install -y --no-install-recommends xvfb libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 >/dev/null  # Qt cần libEGL/libGL dù chạy offscreen
+            sudo apt-get install -y --no-install-recommends xvfb libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3 libxcb-cursor0 >/dev/null  # Qt cần libEGL/libGL dù chạy offscreen
             RUN="xvfb-run -a"
           fi
           MAGICHUB_SMOKE="$PWD/smoke.txt" QT_QPA_PLATFORM=offscreen timeout 300 $RUN "$EXE" > smoke.log 2>&1 || true
