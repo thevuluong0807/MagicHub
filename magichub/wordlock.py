@@ -67,8 +67,30 @@ def lock(src: Path, out: Path, password: str) -> None:
     _rewrite(src, out, edit)
 
 
+def _decrypt(src: Path, out: Path, password: str) -> None:
+    """File đặt mật khẩu MỞ (Word: File > Info > Encrypt with Password): bọc trong container OLE, không phải zip."""
+    import msoffcrypto
+
+    with open(src, "rb") as fin, open(out, "wb") as fout:
+        try:
+            f = msoffcrypto.OfficeFile(fin)
+            f.load_key(password=password)
+            f.decrypt(fout)
+        except msoffcrypto.exceptions.InvalidKeyError:
+            fout.close()
+            out.unlink(missing_ok=True)
+            raise ValueError(f"{src.name}: sai mật khẩu") from None
+        except Exception as e:
+            fout.close()
+            out.unlink(missing_ok=True)
+            raise ValueError(f"{src.name}: không giải mã được ({e}). Có thể là .doc cũ không có mật khẩu - mở bằng Word rồi Lưu thành .docx") from None
+
+
 def unlock(src: Path, out: Path, password: str) -> bool:
     """Gỡ khoá; trả True nếu file có khoá. Sai mật khẩu -> ValueError."""
+    if src.read_bytes()[:4] == b"\xd0\xcf\x11\xe0":
+        _decrypt(src, out, password)
+        return True
     found = []
 
     def edit(root):

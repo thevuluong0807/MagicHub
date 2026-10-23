@@ -139,7 +139,9 @@ def test_word_lock(td):
 
     src = Path(td) / "w.docx"
     with zipfile.ZipFile(src, "w") as z:
+        z.writestr("[Content_Types].xml", '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>')
         z.writestr("word/document.xml", "<d/>")
+        z.writestr("word/media/x.bin", bytes(range(256)) * 40)  # msoffcrypto cần file đủ lớn để giải mã lại được
         z.writestr("word/settings.xml", '<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:zoom w:percent="100"/><w:defaultTabStop w:val="720"/></w:settings>')
     (o,) = by_id("edit.protect").run([src], {"password": "s3cr3t"})
     xml = zipfile.ZipFile(o).read("word/settings.xml").decode()
@@ -152,6 +154,21 @@ def test_word_lock(td):
         assert "sai mật khẩu" in str(e)
     (u,) = by_id("edit.unlock").run([o], {"password": "s3cr3t"})
     assert "documentProtection" not in zipfile.ZipFile(u).read("word/settings.xml").decode()
+    import io
+
+    import msoffcrypto
+
+    enc = Path(td) / "e.docx"
+    with open(o, "rb") as fi, open(enc, "wb") as fo:  # file đặt mật khẩu MỞ (container OLE)
+        msoffcrypto.OfficeFile(fi).encrypt("pw123", fo)
+    assert enc.read_bytes()[:4] == b"\xd0\xcf\x11\xe0"
+    try:
+        by_id("edit.unlock").run([enc], {"password": "x"})
+        assert False
+    except ValueError as e:
+        assert "sai mật khẩu" in str(e)
+    (d,) = by_id("edit.unlock").run([enc], {"password": "pw123"})
+    assert "word/document.xml" in zipfile.ZipFile(d).namelist()
     assert by_id("edit.protect").accepts([src]) and not by_id("edit.protect").accepts([Path(td) / "a.doc"])
 
 

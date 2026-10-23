@@ -12,6 +12,7 @@ def _smoke(out: str) -> int:
     try:
         import magichub.app  # noqa: F401  (Qt, hotkey, wheel…)
         import magichub.dialogs  # noqa: F401
+        import msoffcrypto  # noqa: F401  (Unlock Word)
         import pymupdf
         from magichub.actions import REGISTRY, by_id
 

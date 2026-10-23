@@ -43,7 +43,7 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 | Số trang | Header/footer | `{n}` trang, `{N}` tổng |
 | Strip | Xoá metadata | Ảnh: EXIF/GPS; PDF: tác giả, XML, JS |
 | Flatten | Ép ghi chú/form | Không sửa lại được |
-| Unlock | Gỡ mật khẩu PDF hoặc khoá chỉ-đọc Word | Cần mật khẩu hiện tại |
+| Unlock | Gỡ mật khẩu PDF; Word: gỡ mật khẩu mở file hoặc khoá chỉ-đọc | Cần mật khẩu hiện tại |
 | Compare | So 2 PDF | Chọn đúng 2 file; kết quả tô đỏ chỗ khác |
 
 ## Dòng lệnh

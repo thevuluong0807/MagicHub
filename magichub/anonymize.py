@@ -158,7 +158,7 @@ def _open_zip(path, *args) -> zipfile.ZipFile:
     except zipfile.BadZipFile:
         head = Path(path).read_bytes()[:8] if args == () else b""
         why = (
-            "là file Office cũ (.doc/.xls/.ppt) đổi đuôi, hoặc file đặt mật khẩu - hãy mở bằng Word/Excel rồi 'Lưu thành' .docx/.xlsx/.pptx"
+            "là file Office cũ (.doc/.xls/.ppt) đổi đuôi, hoặc file đặt mật khẩu mở - dùng Unlock (nhập mật khẩu) để gỡ trước, hoặc mở bằng Word/Excel rồi 'Lưu thành' .docx/.xlsx/.pptx"
             if head.startswith(b"\xd0\xcf\x11\xe0")
             else "rỗng hoặc là file khoá tạm (~$...) - Word đang mở file?" if len(head) < 4 or Path(path).name.startswith("~$")
             else "không phải file Office hợp lệ (có thể bị hỏng hoặc đổi đuôi)"
