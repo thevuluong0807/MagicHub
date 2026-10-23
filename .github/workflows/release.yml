@@ -35,6 +35,15 @@ jobs:
               chmod +x appimagetool
               APPIMAGETOOL="$PWD/appimagetool --appimage-extract-and-run" bash packaging/linux/appimage.sh ;;
           esac
+      - name: Smoke test bản đóng gói
+        if: matrix.name != 'macos'
+        shell: bash
+        run: |
+          EXE=dist/MagicHub/MagicHub; [ -f "$EXE.exe" ] && EXE="$EXE.exe"
+          rm -f smoke.txt
+          MAGICHUB_SMOKE="$PWD/smoke.txt" QT_QPA_PLATFORM=offscreen timeout 300 "$EXE" || true
+          cat smoke.txt  # không có file = app chết trước khi chạy được (cũng coi là lỗi)
+          grep -q '^ok' smoke.txt
       - name: Windows installer
         if: matrix.name == 'windows'
         continue-on-error: true  # lỗi installer không chặn zip lên Release

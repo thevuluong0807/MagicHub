@@ -1,9 +1,10 @@
+# Mọi phụ thuộc trực tiếp có cận trên theo major: bản major mới có thể đổi cách đóng gói (xem pymupdf 2.0) và phải được thử trước khi nâng.
 PySide6-Essentials>=6.6,<6.12  # 6.12.0 crash: refcount None
-pynput>=1.7
+pynput>=1.7,<2
 pymupdf>=1.26.7,<2  # 2.0 kéo pymupdf-layout (onnx) tự kích hoạt khi import; PyInstaller không đóng gói file model -> bản Windows crash lúc khởi động
-pillow>=10
-pdf2docx>=0.5.8
-openpyxl>=3.1
-python-pptx>=1.0
-pillow-heif>=0.16
-lxml>=4.9
+pillow>=10,<13
+pdf2docx>=0.5.8,<1
+openpyxl>=3.1,<4
+python-pptx>=1.0,<2
+pillow-heif>=0.16,<2
+lxml>=4.9,<7

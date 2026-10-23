@@ -21,6 +21,11 @@
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
 
+## 2026-10-23 — chưa phát hành (sau v0.9.5): chặn lặp lại lỗi đóng gói
+- `requirements.txt`: mọi phụ thuộc trực tiếp có cận trên theo major (nâng major phải thử trước).
+- `entry.py`: chế độ smoke (`MAGICHUB_SMOKE=<file>`): import mọi module, chạy thật `organize.compress` + `convert.pdf.docx` trên PDF mẫu, ghi `ok …` hoặc traceback ra file (app windowed không có console).
+- `release.yml`: bước "Smoke test bản đóng gói" (Windows + Linux; macOS chưa) chạy exe sau PyInstaller; lỗi thì job `publish` không chạy nên không có Release hỏng. Đã thử ở chế độ source (ok và ca lỗi); chưa chạy trên CI.
+
 ## 2026-10-23 — v0.9.5
 - Hotfix bản Windows (v0.9.2–v0.9.4) crash lúc khởi động: `FileNotFoundError ... pymupdf/layout/resources/onnx/layout_rf2.4.1+imf1.yaml`. Nguyên nhân: CI cài `pymupdf>=1.24` nên lấy PyMuPDF 2.0 (ra ngày 2026-10-19), bản này phụ thuộc `pymupdf-layout` và tự nạp model onnx khi `import pymupdf`; PyInstaller không đóng gói file model. Sửa: ghim `pymupdf>=1.26.7,<2` (pdf2docx yêu cầu ≥ 1.26.7). Máy chạy từ source không bị vì venv đang dùng 1.28.2. Chưa có smoke test chạy exe đóng gói trên CI (app windowed hiện hộp thoại lỗi và treo CI nếu import hỏng).
 
