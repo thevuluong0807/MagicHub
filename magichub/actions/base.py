@@ -133,9 +133,15 @@ def steps(seq, text=None):
     report(1.0)
 
 
+# Windows: app GUI (pythonw/--windowed) mà chạy tiến trình console (powershell, soffice, tesseract, taskkill) sẽ nháy cửa sổ đen; ẩn đi.
+NO_WINDOW = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
+
+
 def run_proc(cmd, timeout=300, **kw) -> subprocess.CompletedProcess:
     """subprocess.run nhưng huỷ được (Cancelled) và giết cả nhóm tiến trình con."""
     kw.setdefault("start_new_session", os.name == "posix")
+    for k, v in NO_WINDOW.items():
+        kw.setdefault(k, v)
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kw)
     t0 = time.monotonic()
     while True:
@@ -154,7 +160,7 @@ def run_proc(cmd, timeout=300, **kw) -> subprocess.CompletedProcess:
                     with contextlib.suppress(ProcessLookupError):
                         os.killpg(p.pid, signal.SIGKILL)
                 else:
-                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True)
+                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, **NO_WINDOW)
                 p.communicate()
                 raise
 

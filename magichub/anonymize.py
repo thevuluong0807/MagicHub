@@ -59,6 +59,7 @@ class Candidate:
     kind: str
     count: int
     checked: bool
+    alias_of: str | None = None  # dạng gọi tắt của một mục khác: dùng cùng họ mã ([ORG_1s] cho [ORG_1])
 
 
 # ---------- Trích chữ ----------
@@ -105,6 +106,7 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
     """Gợi ý các giá trị nên mã hoá; `checked` = mặc định chọn. Người dùng xem lại trước khi áp dụng."""
     text = "\n".join(paragraphs)
     found: dict[str, tuple[str, bool]] = {}
+    alias: dict[str, str] = {}
 
     def add(value, kind, checked):
         value = value.strip(" \t.,;:")
@@ -120,6 +122,7 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
         core = re.sub(rf"^(?:{ORG_KW})\s+(?:(?:TNHH|CP|MTV)\s+)*|\s+(?:TNHH|CP|MTV)\b|\s+\d+$", "", m.group(0)).strip()  # dạng gọi tắt: "Tập đoàn Viettel" -> "Viettel"
         if core != m.group(0) and len(core) >= 3 and core[0].isupper():
             add(core, "ORG", True)
+            alias.setdefault(core, m.group(0).strip(" \t.,;:"))
     for m in RX_TITLED.finditer(text):
         add(m.group(1), "PERSON", True)
 
@@ -174,7 +177,8 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
             if n < 2:
                 continue
             checked = checked or (n >= 3 and " " in rep)
-        out.append(Candidate(rep, kind, n, checked))
+        parent = next((alias[it[0]] for it in items if it[0] in alias), None)
+        out.append(Candidate(rep, kind, n, checked, parent))
     # bỏ cụm con của một cụm đã dò cùng số lần (vd "Chí Minh" trong "Hồ Chí Minh")
     out = [c for c in out if not any(fold_key(c.value) != fold_key(o.value) and fold_key(c.value) in fold_key(o.value) and o.count >= c.count
                                      for o in out if c.kind == "TERM")]
@@ -182,16 +186,34 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
 
 
 # ---------- Mã ----------
-def assign_tokens(entries: list[tuple[str, str]]) -> dict[str, str]:
-    """[(giá trị, loại)] -> {giá trị: '[ORG_1]'}; đánh số theo thứ tự xuất hiện trong danh sách, mỗi loại một bộ đếm."""
+def assign_tokens(entries: list[tuple]) -> dict[str, str]:
+    """[(giá trị, loại[, mục gốc])] -> {giá trị: '[ORG_1]'}; đánh số theo thứ tự trong danh sách, mỗi loại một bộ đếm.
+    Mục có "mục gốc" (dạng gọi tắt) dùng cùng họ mã: [ORG_1s], [ORG_1s2]… nên người đọc/AI thấy cùng một thực thể; Restore vẫn đúng từng dạng."""
     n: Counter = Counter()
-    out = {}
-    for value, kind in entries:
+    out: dict[str, str] = {}
+    later = []
+    for e in entries:
+        value, kind, parent = (tuple(e) + (None,))[:3]
         if value in out or not value.strip():
+            continue
+        if parent:
+            later.append((value, parent))
             continue
         pre = PREFIX.get(kind, "TERM")
         n[pre] += 1
         out[value] = f"[{pre}_{n[pre]}]"
+    k: Counter = Counter()
+    for value, parent in later:
+        if value in out:
+            continue
+        if parent in out:
+            k[parent] += 1
+            out[value] = f"{out[parent][:-1]}s{'' if k[parent] == 1 else k[parent]}]"
+        else:  # mục gốc không được chọn: coi như mục độc lập
+            kind = next((e[1] for e in entries if e[0] == value), "TERM")
+            pre = PREFIX.get(kind, "TERM")
+            n[pre] += 1
+            out[value] = f"[{pre}_{n[pre]}]"
     return out
 
 
@@ -235,9 +257,9 @@ class Mapper:
     """Mã hoá: khớp KHÔNG phân biệt hoa thường/dấu/khoảng trắng/gạch nối. Mỗi dạng chữ khác dạng chuẩn (VIETTEL, viettel, "Viet tel"…)
     nhận mã biến thể [ORG_1v1] để Restore trả đúng nguyên văn từng chỗ."""
 
-    def __init__(self, entries: list[tuple[str, str]]):
+    def __init__(self, entries: list[tuple]):
         self.base = assign_tokens(entries)  # giá trị chuẩn -> mã
-        self.kinds = {v: k for v, k in entries if v in self.base}
+        self.kinds = {e[0]: e[1] for e in entries if e[0] in self.base}
         self.by_key = {fold_key(v): v for v in self.base}
         self.rx = _fold_rx(list(self.by_key))
         self.table = dict(self.base)  # dạng chữ thực tế -> mã (gồm biến thể)
@@ -353,6 +375,22 @@ def transform(src: Path, out: Path, find, scrub: bool = False, restore: bool = F
                 data = _scrub_props(info.filename, data)
             zout.writestr(info, data)
     return n
+
+
+def apply_spans(text: str, hits) -> str:
+    for s, e, rep in sorted(hits, reverse=True):
+        text = text[:s] + rep + text[e:]
+    return text
+
+
+def anonymize_text(text: str, mapper: Mapper) -> tuple[str, int]:
+    hits = mapper.find(text)
+    return apply_spans(text, hits), len(hits)
+
+
+def restore_text(text: str, mapping: dict[str, str]) -> tuple[str, int]:
+    hits = restore_finder(mapping)(text)
+    return apply_spans(text, hits), len(hits)
 
 
 # ---------- Bảng mapping (xlsx) ----------

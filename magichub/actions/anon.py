@@ -35,19 +35,26 @@ def dictionary_terms(name: str) -> list[tuple[str, str]]:
     return [parse_term(t) for t in config.load().get("anonymize_dicts", {}).get(name, []) if t.strip()]
 
 
-@action("edit.anonymize", "edit", "Mã hoá", "Thay tên người, đơn vị, mã dự án, email… bằng mã [PERSON_1], [ORG_2]…; tạo bảng mapping để Restore (docx, xlsx, pptx, txt, md)",
-        kinds=KINDS, ask=_ask_anon, check=supported)
-def anonymize(files, p):
-    """params.entries: [{value, kind}] (bỏ trống = tự chọn theo gợi ý mặc định); params.custom: [dòng tự thêm, tuỳ chọn tiền tố 'ORG: '];
-    params.dictionary: tên từ điển luôn áp dụng; params.scrub: xoá metadata tác giả/công ty. Khớp không phân biệt hoa thường/dấu/khoảng trắng."""
-    entries = [(e["value"], e["kind"]) for e in p["entries"]] if "entries" in p else None
-    if entries is None:
-        entries = [(c.value, c.kind) for c in an.detect([t for f in files for t in an.read_text(f)]) if c.checked]
+def entries_from(p: dict, paragraphs: list[str]) -> list[tuple]:
+    """Danh sách (giá trị, loại, mục gốc) từ tham số hộp thoại: mục đã tick (hoặc mặc định theo gợi ý nếu không có), dòng tự thêm, từ điển."""
+    if "entries" in p:
+        entries = [(e["value"], e["kind"], e.get("alias_of")) for e in p["entries"]]
+    else:
+        entries = [(c.value, c.kind, c.alias_of) for c in an.detect(paragraphs) if c.checked]
     entries += [parse_term(v) for v in p.get("custom", []) if v.strip()]
     if p.get("dictionary"):
         entries += dictionary_terms(p["dictionary"])
     if not entries:
         raise ValueError("Không có gì để mã hoá (chưa chọn mục nào)")
+    return entries
+
+
+@action("edit.anonymize", "edit", "Mã hoá", "Thay tên người, đơn vị, mã dự án, email… bằng mã [PERSON_1], [ORG_2]…; tạo bảng mapping để Restore (docx, xlsx, pptx, txt, md)",
+        kinds=KINDS, ask=_ask_anon, check=supported)
+def anonymize(files, p):
+    """params.entries: [{value, kind}] (bỏ trống = tự chọn theo gợi ý mặc định); params.custom: [dòng tự thêm, tuỳ chọn tiền tố 'ORG: '];
+    params.dictionary: tên từ điển luôn áp dụng; params.scrub: xoá metadata tác giả/công ty. Khớp không phân biệt hoa thường/dấu/khoảng trắng."""
+    entries = entries_from(p, [t for f in files for t in an.read_text(f)])
     mapper = an.Mapper(entries)
     outs = []
     for f in steps(files):

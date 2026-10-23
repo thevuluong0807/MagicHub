@@ -178,6 +178,16 @@ def test_anonymize(td):
     (back,) = run("edit.restore", [a], mapping=str(m))
     assert an.read_text(back) == an.read_text(v), (an.read_text(back), an.read_text(v))
     assert any("Số lần" in str(c.value) for c in ws[1]) and "ORG_1" in " ".join(an.read_text(a))
+    # dạng gọi tắt dùng cùng họ mã (ORG_1 / ORG_1s) mà Restore vẫn trả đúng từng dạng
+    al = td / "alias.txt"
+    al.write_text("Công ty TNHH Sao Mai ký. Sao Mai giao hàng, Công ty TNHH Sao Mai ok.", "utf-8")
+    cs = {c.value: c for c in an.detect(al.read_text("utf-8").splitlines())}
+    assert cs["Sao Mai"].alias_of == "Công ty TNHH Sao Mai", cs
+    (aa, am) = run("edit.anonymize", [al])
+    assert aa.read_text("utf-8") == "[ORG_1] ký. [ORG_1s] giao hàng, [ORG_1] ok.", aa.read_text("utf-8")
+    (ar,) = run("edit.restore", [aa], mapping=str(am))
+    assert ar.read_text("utf-8") == al.read_text("utf-8")
+
     # từ điển theo dự án: luôn áp dụng dù app không dò ra
     from magichub import config
     cfg = config.load()
@@ -213,6 +223,66 @@ def test_anonymize(td):
         assert an.read_text(r) == an.read_text(f), name
         assert by_id("edit.anonymize").accepts([f])
     assert not by_id("edit.anonymize").accepts([make_pdf(td / "p.pdf")]) and not by_id("edit.anonymize").accepts([td / "old.doc"])
+
+
+def test_no_console_window(td):
+    """Windows: mọi tiến trình con phải mang CREATE_NO_WINDOW (không thì nháy cửa sổ PowerShell/console khi xử lý)."""
+    import subprocess
+    from magichub.actions import base
+    seen = []
+    real_popen, real_flags = subprocess.Popen, base.NO_WINDOW
+
+    class Fake:
+        returncode = 0
+        pid = 1
+        def __init__(self, cmd, **kw): seen.append(kw)
+        def communicate(self, timeout=None): return b"", b""
+
+    subprocess.Popen, base.NO_WINDOW = Fake, {"creationflags": 0x08000000}
+    try:
+        base.run_proc(["powershell", "-File", "x.ps1"])
+    finally:
+        subprocess.Popen, base.NO_WINDOW = real_popen, real_flags
+    assert seen[0].get("creationflags") == 0x08000000
+    import inspect
+    from magichub.actions import office
+    assert "Hidden" in inspect.getsource(office._office_run)  # PowerShell tự ẩn cửa sổ dù cờ nào
+
+
+def test_clipboard_anonymize(td):
+    """Menu khay: mã hoá clipboard -> dán cho AI -> giải mã clipboard, bằng mapping gần nhất lưu cục bộ."""
+    from PySide6.QtWidgets import QApplication
+    from magichub import config, dialogs, theme
+    from magichub.app import Hub
+
+    app = QApplication.instance() or QApplication([])
+    theme.apply(app)
+    hub = Hub(app, hotkey_enabled=False)
+    real_dir, real_ask = config.config_dir, dialogs.ask_anonymize
+    config.config_dir = lambda: td
+    notes = []
+    hub.notify = lambda title, text, error=False: notes.append((title, error))
+    dialogs.ask_anonymize = lambda cands: {"entries": [{"value": c.value, "kind": c.kind, "alias_of": c.alias_of} for c in cands if c.checked], "custom": [], "dictionary": "", "scrub": True}
+    try:
+        original = "Ông Nguyễn Văn An (Công ty TNHH Sao Mai) gửi an@saomai.vn. Sao Mai cam kết."
+        app.clipboard().setText(original)
+        hub.anon_clipboard()
+        masked = app.clipboard().text()
+        assert "Nguyễn" not in masked and "saomai" not in masked and "[PERSON_1]" in masked and "[ORG_1s]" in masked, masked
+        reply = masked.replace("gửi", "đã nhận từ")  # "câu trả lời của AI" vẫn mang mã
+        app.clipboard().setText(reply)
+        hub.restore_clipboard()
+        assert app.clipboard().text() == original.replace("gửi", "đã nhận từ")
+        assert (td / "clipboard_mapping.json").exists() and not notes[-1][1]
+        app.clipboard().setText("không có mã")
+        hub.restore_clipboard()
+        assert notes[-1][1]  # báo lỗi, không đổi clipboard
+        assert app.clipboard().text() == "không có mã"
+        hub.clear_clip_mapping()
+        assert not (td / "clipboard_mapping.json").exists()
+    finally:
+        config.config_dir, dialogs.ask_anonymize = real_dir, real_ask
+        hub.tray.hide()
 
 
 def test_options(td):
@@ -777,7 +847,7 @@ def test_hub_toast(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_compress_office_target, test_anonymize, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_compress_office_target, test_anonymize, test_clipboard_anonymize, test_no_console_window, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)

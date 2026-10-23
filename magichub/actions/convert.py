@@ -10,7 +10,7 @@ from pathlib import Path
 import pymupdf
 from PIL import Image, ImageOps
 
-from .base import (REGISTRY, Action, action, ext, natural_key, open_pdf, out_path, report, save_pdf, steps,
+from .base import (NO_WINDOW, REGISTRY, Action, action, ext, natural_key, open_pdf, out_path, report, save_pdf, steps,
                    tmpdir, unique)
 from .office import office_convert as soffice_convert
 
@@ -191,7 +191,7 @@ def _tess_langs() -> str:
     """eng + vie nếu đã cài gói ngôn ngữ; chỉ dùng ngôn ngữ có thật để tesseract không báo lỗi."""
     import subprocess
 
-    r = subprocess.run(["tesseract", "--list-langs"], capture_output=True, text=True)
+    r = subprocess.run(["tesseract", "--list-langs"], capture_output=True, text=True, **NO_WINDOW)
     have = set(r.stdout.split())
     return "+".join(l for l in ("vie", "eng") if l in have) or "eng"
 

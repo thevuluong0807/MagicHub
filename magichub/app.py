@@ -126,6 +126,10 @@ class Hub(QObject):
             a.setChecked(self.cfg.get("engine", "auto") == key)
             a.triggered.connect(lambda _=False, k=key: self.set_engine(k))
             grp.addAction(a)
+        clip = menu.addMenu("Mã hoá clipboard")  # dán văn bản vào AI mà không tạo file
+        clip.addAction("Mã hoá văn bản trong clipboard…", self.anon_clipboard)
+        clip.addAction("Giải mã văn bản trong clipboard", self.restore_clipboard)
+        clip.addAction("Xoá mapping clipboard", self.clear_clip_mapping)
         menu.addAction("Mở thư mục cấu hình", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(config.config_dir()))))
         menu.addAction("Thoát", app.quit)
         self._menu = menu
@@ -360,6 +364,50 @@ class Hub(QObject):
         self._log(job.act, job.files, [], "error", error=msg)
         if getattr(self, "quit_after", False):
             QTimer.singleShot(8000, self.app.quit)
+
+    # ---- mã hoá văn bản trong clipboard ----
+    def _clip_file(self):
+        return config.config_dir() / "clipboard_mapping.json"
+
+    def anon_clipboard(self):
+        """Clipboard -> hộp thoại chọn mục -> thay bằng mã, chép lại vào clipboard; mapping gần nhất lưu cục bộ để giải mã."""
+        from . import anonymize as an
+        from .actions.anon import entries_from
+        from .dialogs import ask_anonymize
+
+        text = self.app.clipboard().text()
+        if not text.strip():
+            return self.notify("MagicHub", "Clipboard chưa có văn bản", error=True)
+        params = ask_anonymize(an.detect(text.splitlines()))
+        if params is None:
+            return
+        try:
+            mapper = an.Mapper(entries_from(params, text.splitlines()))
+        except ValueError as e:
+            return self.notify("MagicHub", str(e), error=True)
+        out, n = an.anonymize_text(text, mapper)
+        f = self._clip_file()
+        f.write_text(json.dumps(mapper.table, ensure_ascii=False), "utf-8")
+        if os.name == "posix":
+            f.chmod(0o600)  # chứa dữ liệu gốc
+        self.app.clipboard().setText(out)
+        self.notify("Đã mã hoá clipboard", f"{n} chỗ đã thay; văn bản mã hoá đã nằm trong clipboard. Nhận câu trả lời từ AI thì copy rồi bấm Giải mã.")
+
+    def restore_clipboard(self):
+        from . import anonymize as an
+
+        f = self._clip_file()
+        if not f.exists():
+            return self.notify("MagicHub", "Chưa có mapping clipboard (hãy mã hoá văn bản trước)", error=True)
+        out, n = an.restore_text(self.app.clipboard().text(), json.loads(f.read_text("utf-8")))
+        if not n:
+            return self.notify("MagicHub", "Không thấy mã nào khớp mapping gần nhất trong clipboard", error=True)
+        self.app.clipboard().setText(out)
+        self.notify("Đã giải mã clipboard", f"{n} chỗ đã trả lại giá trị gốc, văn bản đã nằm trong clipboard.")
+
+    def clear_clip_mapping(self):
+        self._clip_file().unlink(missing_ok=True)
+        self.notify("MagicHub", "Đã xoá mapping clipboard")
 
     def notify(self, title, text, error=False):
         print(f"[{title}] {text}", flush=True)

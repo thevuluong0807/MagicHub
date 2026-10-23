@@ -87,7 +87,7 @@ def _office_run(src: Path, fmt: str, outdir: Path) -> Path:
         env = {**os.environ, "MH_SRC": str(src), "MH_OUT": str(out), "MH_FMT": ext, "MH_APP": APP[kind]}
         with tmpdir() as td:
             (td / "o.ps1").write_text(_PS, "utf-8-sig")
-            r = run_proc(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+            r = run_proc(["powershell", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass",
                           "-File", str(td / "o.ps1")], env=env, timeout=300)
     else:  # macOS: Office có sandbox, chỉ ghi được vào Group Container của Office -> ghi tạm rồi chuyển
         group = Path.home() / "Library/Group Containers/UBF8T346G9.Office"

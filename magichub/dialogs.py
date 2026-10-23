@@ -465,7 +465,7 @@ def ask_anonymize(cands) -> dict | None:
     _front(dlg)
     if dlg.exec() != QDialog.Accepted:
         return None
-    entries = [{"value": c.value, "kind": c.kind} for r, c in enumerate(cands) if table.item(r, 0).checkState() == Qt.Checked]
+    entries = [{"value": c.value, "kind": c.kind, "alias_of": c.alias_of} for r, c in enumerate(cands) if table.item(r, 0).checkState() == Qt.Checked]
     name = combo.currentText().strip()
     lines = [t.strip() for t in extra.toPlainText().splitlines() if t.strip()]
     use_dict = name and name != "(không dùng)"

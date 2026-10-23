@@ -12,7 +12,7 @@ import urllib.request
 from pathlib import Path
 
 from . import __version__
-from .actions.base import report, steps  # noqa: F401  (report: tiến trình tải)
+from .actions.base import NO_WINDOW, report, steps  # noqa: F401  (report: tiến trình tải)
 
 REPO = "thevuluong0807/MagicHub"
 API = f"https://api.github.com/repos/{REPO}/releases/latest"
@@ -53,8 +53,7 @@ def mode() -> str:
 
 
 def _run(cmd: list[str]) -> str:
-    kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}  # pythonw: không nháy cửa sổ console
-    r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=600, **kw)
+    r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=600, **NO_WINDOW)
     if r.returncode:
         raise RuntimeError(f"{' '.join(cmd[:2])}: {(r.stderr or r.stdout).strip()[-300:]}")
     return r.stdout
