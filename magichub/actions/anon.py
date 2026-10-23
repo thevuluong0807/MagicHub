@@ -15,10 +15,17 @@ def _mapping_path(out: Path) -> Path:
 
 
 def _ask_anon(files):
-    from ..dialogs import ask_anonymize
+    from ..dialogs import ask_anonymize, run_with_progress
 
-    paras = [t for f in files for t in an.read_text(f)]
-    return ask_anonymize(an.detect(paras, an.load_safe()))
+    def scan(report):  # 0-30%: đọc các file, 30-100%: dò
+        paras = []
+        for i, f in enumerate(files):
+            report((i + 0.0) / len(files) * 0.3, f"Đọc {f.name}")
+            paras += an.read_text(f, lambda x, i=i: report((i + x) / len(files) * 0.3, f"Đọc {f.name}"))
+        return an.detect(paras, an.load_safe(), lambda x: report(0.3 + 0.7 * x, "Dò tên, đơn vị, mã…"))
+
+    cands = run_with_progress("Đang quét để mã hoá", scan)
+    return ask_anonymize(cands) if cands is not None else None
 
 
 def parse_term(line: str) -> tuple[str, str]:

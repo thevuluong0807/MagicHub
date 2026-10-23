@@ -64,7 +64,7 @@ class Toast(QWidget):
 
         self.bar = QProgressBar()
         self.bar.setRange(0, 1000)
-        self.bar.setTextVisible(False)
+        self.bar.setTextVisible(True)  # hiện % ngay trên thanh khi biết tiến độ (xem _tick)
         grid.addWidget(self.bar)
 
         bottom = QHBoxLayout()
@@ -184,8 +184,10 @@ class Toast(QWidget):
         if self.frac is None:  # chưa biết tiến độ: thanh chạy qua lại
             self._sweep = (self._sweep + 18) % 2000
             self.bar.setValue(self._sweep if self._sweep < 1000 else 2000 - self._sweep)
+            self.bar.setFormat("")
             self.meta.setText(_mmss(el))
         else:
+            self.bar.setFormat(f"{int(self.frac * 100)}%")
             eta = f" · còn ~{_mmss(el * (1 - self.frac) / self.frac)}" if self.frac > 0.05 else ""
             self.meta.setText(f"{int(self.frac * 100)}% · {_mmss(el)}{eta}")
 

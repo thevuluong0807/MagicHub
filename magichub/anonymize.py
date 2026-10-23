@@ -168,14 +168,17 @@ def _open_zip(path, *args) -> zipfile.ZipFile:
         raise ValueError(f"'{Path(path).name}' {why}") from None
 
 
-def read_text(path: Path) -> list[str]:
-    """Các đoạn chữ của file (mỗi đoạn một chuỗi)."""
+def read_text(path: Path, progress=None) -> list[str]:
+    """Các đoạn chữ của file (mỗi đoạn một chuỗi). `progress(frac)`: tiến độ đọc các phần của file."""
     path = Path(path)
     if path.suffix.lower().lstrip(".") in TEXT:
         return path.read_text("utf-8", errors="replace").splitlines()
     out = []
     with _open_zip(path) as zf:
-        for name, p_tag, t_tag in _parts_of(zf):
+        parts = list(_parts_of(zf))
+        for i, (name, p_tag, t_tag) in enumerate(parts):
+            if progress:
+                progress(i / len(parts))
             root = etree.fromstring(zf.read(name))
             out += ["".join(t.text or "" for t in ts) for _, ts in _paragraphs(root, p_tag, t_tag)]
     return out
@@ -204,14 +207,20 @@ def load_safe() -> set[str]:
     return out
 
 
-def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidate]:
+def detect(paragraphs: list[str], safe: set[str] | None = None, progress=None) -> list[Candidate]:
     """Gợi ý các giá trị nên mã hoá; `checked` = mặc định chọn. Người dùng xem lại trước khi áp dụng.
-    `safe`: khoá gấp của các cụm luôn bỏ qua (xem load_safe). Loại: Mã (chọn sẵn, gồm viết tắt chưa rõ), Thuật ngữ và Biến/định danh (không chọn sẵn)."""
+    `progress(frac)`: báo tiến độ 0..1 (có thể ném ngoại lệ để huỷ). `safe`: khoá gấp của các cụm luôn bỏ qua (xem load_safe). Loại: Mã (chọn sẵn, gồm viết tắt chưa rõ), Thuật ngữ và Biến/định danh (không chọn sẵn)."""
     safe = safe or set()
     paragraphs = [unicodedata.normalize("NFC", p) for p in paragraphs]  # file Word/PDF hay lẫn dạng tổ hợp: so khớp chữ thường cần cùng dạng
     text = "\n".join(paragraphs)
     found: dict[str, tuple[str, bool]] = {}
     alias: dict[str, str] = {}
+    stage = [0]
+
+    def tick():
+        stage[0] += 1
+        if progress:
+            progress(min(1.0, stage[0] / 9))
 
     def lower_seen(word):
         """Từ in hoa mà dạng thường cũng xuất hiện ("HÌNH" ~ "hình") là chữ tiêu đề, không phải viết tắt.
@@ -241,6 +250,7 @@ def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidat
             if kind == "PROJECT" and all(lower_seen(w) or is_vn_syllable(w) for w in re.findall(r"[^\W\d_]+", m.group(0))):  # "NGHIỆP-VIỄN": tiêu đề in hoa, không phải mã
                 continue
             add(m.group(0), kind, True)
+    tick()
     for m in RX_ORG.finditer(text):
         full = clean_org(m.group(0))
         if " " not in full.strip():
@@ -257,11 +267,13 @@ def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidat
         if " " in core and len(tail) >= 4 and tail[0].isupper() and tail.isalpha() and not is_vn_syllable(tail) and tail.lower() not in FORM_WORDS and tail not in found:
             add(tail, "ORG", True)
             alias.setdefault(tail, full.strip(" \t.,;:"))
+    tick()
     for m in RX_TITLED.finditer(text):
         add(m.group(1), "PERSON", True)
     for m in RX_INITIALS.finditer(text):
         add(m.group(0), "PERSON", True)
 
+    tick()
     # cụm từ viết hoa liên tiếp (2-5 từ); họ phổ biến đứng đầu => người
     for line in paragraphs:
         words = list(RX_WORD.finditer(line))
@@ -288,7 +300,8 @@ def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidat
                     add(phrase, "TERM", False)  # chốt `checked` theo số lần ở dưới
             i = j + 1
 
-    ftext = fold_map(text)[0]  # đếm không phân biệt hoa thường/dấu để gộp "Viettel", "VIETTEL", "viettel"
+    fm_text = fold_map(text)
+    ftext = fm_text[0]  # đếm không phân biệt hoa thường/dấu để gộp "Viettel", "VIETTEL", "viettel"
 
     def n_of(v):
         rx = _fold_rx([fold_key(v)]) if fold_key(v) else None
@@ -300,8 +313,9 @@ def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidat
         if not re.fullmatch(r"[a-z\d]{3,10}", k):
             return 0
         glued = lambda a, b: (a > 0 and (text[a - 1].isalnum() or text[a - 1] == "_")) or (b < len(text) and (text[b].isalnum() or text[b] == "_"))
-        return sum(glued(a, b) for a, b, _ in glue_hits(text, re.compile(re.escape(k))))
+        return sum(glued(a, b) for a, b, _ in glue_hits(text, re.compile(re.escape(k)), fm=fm_text))
 
+    tick()
     # Tiền tố của mã có gạch nối (BVL trong BVL-GN-CNP) luôn là Mã dù có trong bảng thuật ngữ
     prefixes = set()
     for v, (kind, _) in found.items():
@@ -317,9 +331,11 @@ def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidat
     for m in re.finditer(rf"((?:[A-Za-z]+[ \-]){{1,8}}[A-Za-z]+)[ \t]*\(([{UP}]{{2,8}})\)", text):
         if _initials_match(m.group(2), m.group(1)):
             defined.add(fold_key(m.group(2)))
+    tick()
     # định danh/biến: FFT_WINDOW_FLAT, getUserName (văn bản thường không viết thế)
     for m in RX_IDENT.finditer(text):
         add(m.group(0), "IDENT", False)
+    tick()
     # viết tắt in hoa lặp lại (có thể kèm số như BV3C): chỉ lấy khi ≥ 2 lần. Thuật ngữ công khai -> TECH; còn lại là mã (an toàn hơn: sót mới lộ)
     keys = {fold_key(v) for v in found}
     for m in RX_ACRONYM.finditer(text):
@@ -328,6 +344,7 @@ def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidat
             tech = fold_key(a) not in prefixes and (a in TECH_TERMS or fold_key(a) in defined)
             found[a] = ("TECH", False) if tech else ("PROJECT", True)
             keys.add(fold_key(a))
+    tick()
     groups: dict[str, list] = {}
     for v, (kind, checked) in found.items():
         groups.setdefault(fold_key(v), []).append((v, kind, checked))
@@ -435,10 +452,10 @@ def _fold_rx(keys):
     return re.compile("|".join(parts)) if parts else None
 
 
-def glue_hits(text: str, rx, taken: list[tuple[int, int]] = ()) -> list[tuple[int, int, str]]:
+def glue_hits(text: str, rx, taken: list[tuple[int, int]] = (), fm=None) -> list[tuple[int, int, str]]:
     """Mã viết hoa dính liền chữ khác: "BVLclient", "BVLClient", "myBVL", "BVL_server" -> (đầu, cuối, khoá gấp). Chỉ nhận khi mã đứng nguyên dạng IN HOA
     và không kéo dài một cụm in hoa/số khác (không khớp "BVLC", "BVL2", "XBVL")."""
-    folded, origin = fold_map(text)
+    folded, origin = fm or fold_map(text)  # fm: kết quả fold_map(text) tính sẵn (văn bản lớn: gấp lại mỗi lần rất chậm)
     out = []
     for m in rx.finditer(folded):
         a, b = origin[m.start()], origin[m.end() - 1] + 1

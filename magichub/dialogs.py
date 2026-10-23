@@ -663,6 +663,69 @@ def ask_anonymize(cands) -> dict | None:
     return {"entries": entries, "custom": [], "dictionary": name, "scrub": scrub.isChecked(), "password": pw.text()}
 
 
+class _Cancelled(Exception):
+    pass
+
+
+def run_with_progress(title: str, fn):
+    """Chạy fn(report) ở luồng nền, hiện thanh tiến độ 0-100% (report(frac 0..1, dòng chi tiết)); Huỷ -> None. Lỗi của fn được ném lại."""
+    import threading
+
+    from PySide6.QtCore import QObject, Signal
+    from PySide6.QtWidgets import QProgressBar
+
+    class Sig(QObject):
+        prog = Signal(float, str)
+        done = Signal()
+
+    sig, box, stop, finished = Sig(), {}, threading.Event(), threading.Event()
+    dlg = QDialog()
+    dlg.setWindowTitle(title)
+    dlg.setMinimumWidth(420)
+    lay = QVBoxLayout(dlg)
+    head = QLabel(title)
+    detail = QLabel("Đang chuẩn bị…")
+    detail.setObjectName("muted")
+    bar = QProgressBar()
+    bar.setRange(0, 100)
+    bar.setFormat("%p%")
+    lay.addWidget(head)
+    lay.addWidget(bar)
+    lay.addWidget(detail)
+    cancel = QPushButton("Huỷ")
+    cancel.clicked.connect(lambda: (stop.set(), cancel.setEnabled(False), detail.setText("Đang huỷ…")))
+    row = QHBoxLayout()
+    row.addStretch(1)
+    row.addWidget(cancel)
+    lay.addLayout(row)
+    sig.prog.connect(lambda f, t: (bar.setValue(int(f * 100)), detail.setText(t) if t else None))
+    sig.done.connect(dlg.accept)
+
+    def report(frac, text=""):
+        if stop.is_set():
+            raise _Cancelled()
+        sig.prog.emit(max(0.0, min(1.0, frac)), text)
+
+    def work():
+        try:
+            box["v"] = fn(report)
+        except _Cancelled:
+            box["cancel"] = True
+        except BaseException as e:  # chuyển lỗi sang luồng giao diện
+            box["err"] = e
+        finished.set()
+        sig.done.emit()
+
+    threading.Thread(target=work, daemon=True).start()
+    _front(dlg)
+    if not finished.is_set():  # việc xong trước khi hộp hiện thì khỏi chờ
+        dlg.exec()  # đóng cửa sổ bằng X cũng là huỷ
+    stop.set()
+    if "err" in box:
+        raise box["err"]
+    return None if box.get("cancel") or "v" not in box else box["v"]
+
+
 def ask_password(title: str) -> str | None:
     """Hỏi một mật khẩu (ẩn ký tự); None = huỷ hoặc để trống."""
     text, ok = QInputDialog.getText(None, title, "Mật khẩu:", QLineEdit.Password)

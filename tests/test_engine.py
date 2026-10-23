@@ -182,6 +182,31 @@ def test_word_lock(td):
     assert by_id("edit.protect").accepts([src]) and not by_id("edit.protect").accepts([Path(td) / "a.doc"])
 
 
+def test_scan_progress(td):
+    import time
+
+    from PySide6.QtWidgets import QApplication
+
+    from magichub import anonymize as an, dialogs
+
+    QApplication.instance() or QApplication([])
+    seen = []
+    got = dialogs.run_with_progress("t", lambda report: (report(0.2, "a"), time.sleep(0.2), report(0.9, "b"), 42)[-1])
+    assert got == 42
+    assert dialogs.run_with_progress("t", lambda report: 7) == 7  # xong trước khi hộp hiện
+    try:
+        dialogs.run_with_progress("t", lambda report: 1 / 0)
+        assert False
+    except ZeroDivisionError:
+        pass
+    an.detect(["Công ty TNHH Sao Mai ký. Công ty TNHH Sao Mai ok."] * 3, progress=seen.append)
+    assert seen and seen[-1] <= 1.0 and seen == sorted(seen)  # tiến độ chỉ tăng, không vượt 100%
+    seen.clear()
+    f = Path(td) / "p.txt"
+    f.write_text("x", "utf-8")
+    assert an.read_text(f, seen.append) == ["x"]
+
+
 def test_anonymize(td):
     """Dò + mã hoá + Restore vòng tròn trên docx/xlsx/pptx/txt: không còn giá trị gốc, khôi phục đúng từng đoạn, giữ định dạng."""
     import docx, openpyxl, pptx
