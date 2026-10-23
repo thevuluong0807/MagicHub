@@ -397,7 +397,7 @@ def ask_hotkey(mods: list[str], key: str) -> tuple[list[str], str] | None:
     return pending["v"] if dlg.exec() == QDialog.Accepted and "v" in pending else None
 
 
-DICT_KINDS = ["PERSON", "ORG", "PROJECT", "PLACE", "EMAIL", "PHONE", "URL", "ID", "IP", "TERM"]
+DICT_KINDS = ["PERSON", "ORG", "PROJECT", "PLACE", "TECH", "IDENT", "EMAIL", "PHONE", "URL", "ID", "IP", "TERM", "SAFE"]
 
 
 def ask_dictionaries(select: str | None = None) -> dict | None:
@@ -412,7 +412,7 @@ def ask_dictionaries(select: str | None = None) -> dict | None:
     dlg.resize(760, 520)
     lay = QVBoxLayout(dlg)
     lay.setContentsMargins(24, 20, 24, 20)
-    header(lay, "Từ điển mã hoá", "Các cụm trong từ điển luôn được mã hoá khi bạn bật \"Dùng từ điển\" (khớp không phân biệt hoa thường, dấu, khoảng trắng).")
+    header(lay, "Từ điển mã hoá", "Các cụm trong từ điển luôn được mã hoá khi bạn bật \"Dùng từ điển\" (khớp không phân biệt hoa thường, dấu, khoảng trắng). Loại \"Bỏ qua\" = không bao giờ dò hay mã hoá cụm đó (áp dụng cho mọi từ điển).")
     body = QHBoxLayout()
     lay.addLayout(body, 1)
 

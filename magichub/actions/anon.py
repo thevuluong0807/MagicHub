@@ -18,7 +18,7 @@ def _ask_anon(files):
     from ..dialogs import ask_anonymize
 
     paras = [t for f in files for t in an.read_text(f)]
-    return ask_anonymize(an.detect(paras))
+    return ask_anonymize(an.detect(paras, an.load_safe()))
 
 
 def parse_term(line: str) -> tuple[str, str]:
@@ -40,10 +40,12 @@ def entries_from(p: dict, paragraphs: list[str]) -> list[tuple]:
     if "entries" in p:
         entries = [(e["value"], e["kind"], e.get("alias_of")) for e in p["entries"]]
     else:
-        entries = [(c.value, c.kind, c.alias_of) for c in an.detect(paragraphs) if c.checked]
+        entries = [(c.value, c.kind, c.alias_of) for c in an.detect(paragraphs, an.load_safe()) if c.checked]
     entries += [parse_term(v) for v in p.get("custom", []) if v.strip()]
     if p.get("dictionary"):
         entries += dictionary_terms(p["dictionary"])
+    safe = an.load_safe()  # 'SAFE: …' trong mọi từ điển: không bao giờ mã hoá, kể cả khi người dùng tick hoặc nằm trong từ điển khác
+    entries = [e for e in entries if e[1] != "SAFE" and an.fold_key(e[0]) not in safe]
     if not entries:
         raise ValueError("Không có gì để mã hoá (chưa chọn mục nào)")
     return entries

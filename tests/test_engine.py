@@ -278,7 +278,8 @@ Số Serial: 1; Sđ"""
     g = {c.value: c for c in an.detect(doc.splitlines())}
     for noise in ("HÌNH", "HIỆN", "TẠI", "DIỄN", "CAO", "BAY"):
         assert noise not in g, noise
-    assert all(g[v].kind == "PROJECT" and g[v].checked for v in ("MHTH", "UAV", "GNSS"))
+    assert g["MHTH"].kind == "PROJECT" and g["MHTH"].checked  # viết tắt chưa rõ: coi là mã, chọn sẵn
+    assert all(g[v].kind == "TECH" and not g[v].checked for v in ("UAV", "GNSS"))  # thuật ngữ công khai
     assert "192.168.1.5" in g and "10.0.0.7" in g and "5.8.9.3" not in g and "1.1.1.4" not in g
     assert "Tổng Công ty Công nghiệp Công nghệ cao Viettel" in g and "Tập đoàn Công nghiệp – Viễn thông Quân đội" in g
     assert not any("\n" in v or "Trường" in v for v in g)
@@ -287,6 +288,44 @@ Số Serial: 1; Sđ"""
     assert sm["BVL"].kind == sm["BV3C"].kind == "PROJECT" and sm["BVL"].checked and sm["BV3C"].checked and "BV3C-01" in sm
     assert "A1" not in sm and "4G" not in sm  # cần ≥ 2 chữ cái và bắt đầu bằng chữ
     assert an.is_vn_syllable("CHÍ") and an.is_vn_syllable("quân") and not an.is_vn_syllable("BVL") and not an.is_vn_syllable("UAV")
+
+
+def test_detect_term_vs_code(td):
+    """Phân biệt Thuật ngữ (FPGA, TDOA) / Mã (BVL, BV3C) / Biến-định danh (FFT_WINDOW_FLAT) và danh sách 'SAFE' trong từ điển."""
+    from magichub import anonymize as an, config
+    from magichub.actions.anon import entries_from
+    doc = """Hệ thống dùng FPGA và TDOA để định vị; FPGA, TDOA ok. Tham số FFT_WINDOW_FLAT, FFT_WINDOW_FLAT và getUserName, getUserName.
+Dự án BVL: mã BVL-GN-CNP, BVL-GN-CKT. BVL BVL. TDOA (Time Difference of Arrival) và Time Difference of Arrival (TDOA). BV3C BV3C. XYZW XYZW. RADAR-01 RADAR-02 RADAR RADAR."""
+    g = {c.value: c for c in an.detect(doc.splitlines())}
+    for v in ("FPGA", "TDOA"):
+        assert g[v].kind == "TECH" and not g[v].checked, v
+    for v in ("BVL", "BV3C", "XYZW", "BVL-GN-CNP"):
+        assert g[v].kind == "PROJECT" and g[v].checked, v
+    assert g["FFT_WINDOW_FLAT"].kind == "IDENT" and not g["FFT_WINDOW_FLAT"].checked and g["getUserName"].kind == "IDENT"
+    assert "FFT" not in g  # FFT nằm trong định danh, không tách ra
+    assert g["RADAR"].kind == "PROJECT"  # tiền tố của mã RADAR-01 thắng bảng thuật ngữ
+    assert an.is_vn_syllable("CAO") and "FPGA" in an.TECH_TERMS
+    # "định nghĩa tiếng Anh ngay trong văn bản" -> thuật ngữ kể cả khi không có trong bảng
+    d2 = {c.value: c for c in an.detect(["Dùng QZXV (Quick Zone Xray Value) cho QZXV. QZXV lại. BVL (Bộ Vô Lăng) BVL BVL."])}
+    assert d2["QZXV"].kind == "TECH" and d2["BVL"].kind == "PROJECT"  # định nghĩa tiếng Việt: giữ là mã
+    # SAFE: không dò và không bao giờ mã hoá, dù người dùng tick tay hoặc nằm trong từ điển khác
+    assert "TDOA" not in {c.value for c in an.detect(doc.splitlines(), {an.fold_key("tdoa")})}
+    from magichub import config as cfgmod
+    real = cfgmod.config_dir
+    cfgmod.config_dir = lambda: td
+    try:
+        cfg = cfgmod.load()
+        cfg["anonymize_dicts"] = {"A": ["SAFE: TDOA", "ORG: Viettel"], "B": ["ORG: tdoa", "PROJECT: BVL"]}
+        cfgmod.save(cfg)
+        assert an.load_safe() == {"tdoa"}
+        got = entries_from({"entries": [{"value": "TDOA", "kind": "TECH"}, {"value": "BVL", "kind": "PROJECT"}], "dictionary": "B"}, [])
+        assert [e[0] for e in got] == ["BVL", "BVL"] and not any(e[0].lower() == "tdoa" for e in got)
+        src = td / "s.txt"
+        src.write_text("TDOA và BVL, Viettel", "utf-8")
+        (o, m) = run("edit.anonymize", [src], entries=[{"value": "TDOA", "kind": "TECH"}, {"value": "BVL", "kind": "PROJECT"}], dictionary="A")
+        assert o.read_text("utf-8") == "TDOA và [PROJECT_1], [ORG_1]", o.read_text("utf-8")
+    finally:
+        cfgmod.config_dir = real
 
 
 def test_dictionary_dialogs(td):
@@ -959,7 +998,7 @@ def test_hub_toast(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_compress_office_target, test_anonymize, test_anonymize_detect_quality, test_dictionary_dialogs, test_clipboard_anonymize, test_no_console_window, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_compress_office_target, test_anonymize, test_anonymize_detect_quality, test_detect_term_vs_code, test_dictionary_dialogs, test_clipboard_anonymize, test_no_console_window, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)

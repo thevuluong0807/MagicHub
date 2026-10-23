@@ -379,7 +379,7 @@ class Hub(QObject):
         text = self.app.clipboard().text()
         if not text.strip():
             return self.notify("MagicHub", "Clipboard chưa có văn bản", error=True)
-        params = ask_anonymize(an.detect(text.splitlines()))
+        params = ask_anonymize(an.detect(text.splitlines(), an.load_safe()))
         if params is None:
             return
         try:

@@ -11,6 +11,8 @@ from pathlib import Path
 
 from lxml import etree
 
+from .techterms import TECH_TERMS
+
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 A = "http://schemas.openxmlformats.org/drawingml/2006/main"
 S = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
@@ -27,9 +29,9 @@ TEXT = {"txt", "md"}
 SUPPORTED = OOXML | TEXT
 PROPS = {"docProps/core.xml": ("creator", "lastModifiedBy"), "docProps/app.xml": ("Company", "Manager")}
 
-PREFIX = {"PERSON": "PERSON", "ORG": "ORG", "PLACE": "PLACE", "PROJECT": "PROJECT", "EMAIL": "EMAIL", "PHONE": "PHONE", "URL": "URL", "ID": "ID",
+PREFIX = {"PERSON": "PERSON", "ORG": "ORG", "PLACE": "PLACE", "TECH": "TECH", "IDENT": "IDENT", "SAFE": "SAFE", "PROJECT": "PROJECT", "EMAIL": "EMAIL", "PHONE": "PHONE", "URL": "URL", "ID": "ID",
           "IP": "IP", "TERM": "TERM", "CUSTOM": "TERM"}
-KIND_LABEL = {"PERSON": "Người", "ORG": "Tổ chức", "PLACE": "Địa danh", "PROJECT": "Mã dự án", "EMAIL": "Email", "PHONE": "SĐT", "URL": "URL", "ID": "Số định danh",
+KIND_LABEL = {"PERSON": "Người", "ORG": "Tổ chức", "PLACE": "Địa danh", "PROJECT": "Mã", "TECH": "Thuật ngữ", "IDENT": "Biến/định danh", "SAFE": "Bỏ qua", "EMAIL": "Email", "PHONE": "SĐT", "URL": "URL", "ID": "Số định danh",
               "IP": "IP", "TERM": "Cụm lặp", "CUSTOM": "Tự thêm"}
 
 UP = "A-ZÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬĐÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴ"
@@ -56,16 +58,18 @@ RX_URL = re.compile(r"\b(?:https?://|www\.)[^\s<>\"')\]]+", re.I)
 RX_IP = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 RX_PHONE = re.compile(r"(?<![\w.])(?:\+84|0084|0)[ .-]?\d(?:[ .-]?\d){8,9}(?!\w)(?!\.\d)")
 RX_ID = re.compile(r"(?<![\w.])\d{9}(?:\d{3})?(?!\w)(?!\.\d)")  # CCCD 12 số / CMND 9 số
-RX_CODE = re.compile(rf"(?<![\w-])(?:\d+\.)?[{UP}][{UP}\d]+(?:[-_/.][{UP}\d]+)+(?![\w-])")  # BVL-2026-01, BV3C-01, 11.BVL-HS, VT/2026/05
+RX_CODE = re.compile(rf"(?<![\w-])(?:\d+\.)?[{UP}][{UP}\d]+(?:[-/.][{UP}\d]+)+(?![\w-])")  # BVL-2026-01, BV3C-01, 11.BVL-HS, VT/2026/05 (gạch dưới = định danh/biến)
 SP = r"[ \t\u00a0]+"  # cùng một dòng: tên không vắt qua đoạn/ô bảng khác
 RX_ORG = re.compile(rf"(?<!\w)(?=[{UP}])(?i:{ORG_KW})(?:{SP}(?:(?i:cổ{SP}phần)|(?i:{ORG_WORDS})(?![\w-])|(?i:và|của)(?={SP}(?:(?i:{ORG_WORDS})|[{UP}]\w*{SP}(?i:{ORG_WORDS}))(?![\w-]))|[{UP}][\w&'’-]*|&|[-–]|TNHH|CP|MTV))+(?:{SP}\d+)?")
 RX_TITLED = re.compile(rf"\b{TITLES}{SP}((?:[{UP}][^\W\d_]*)(?:{SP}[{UP}][^\W\d_]*){{0,3}})")
+RX_IDENT = re.compile(r"(?<![\w.])(?:[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+|[a-z][a-z0-9]*(?:[A-Z][a-z0-9]+)+|(?:[A-Z][a-z0-9]+){2,})(?![\w])")  # FFT_WINDOW_FLAT, getUserName, UserName
+RX_DEFINED = re.compile(rf"(?<![\w-])([{UP}]{{2,8}})[ \t]*\(([A-Za-z][A-Za-z \-/]{{4,80}})\)")  # TDOA (Time Difference of Arrival)
 RX_WORD = re.compile(r"[^\W_]+(?:[-'’][^\W_]+)*")
 RX_ACRONYM = re.compile(rf"(?<![\w-])[{UP}][{UP}\d]{{2,9}}(?![\w-])")  # BVL, MHTH, BV3C, B2B (có thể kèm số)
 
 
 # độ dài tối thiểu (ký tự) để một giá trị đủ ngữ nghĩa theo loại: mã/viết tắt ngắn như "BVL" vẫn hợp lệ, cụm chữ thường phải dài hơn
-MIN_LEN = {"EMAIL": 6, "URL": 8, "IP": 7, "PHONE": 9, "ID": 9, "PROJECT": 3, "ORG": 3, "PERSON": 5, "PLACE": 4, "TERM": 6}
+MIN_LEN = {"TECH": 3, "IDENT": 5, "EMAIL": 6, "URL": 8, "IP": 7, "PHONE": 9, "ID": 9, "PROJECT": 3, "ORG": 3, "PERSON": 5, "PLACE": 4, "TERM": 6}
 
 
 def _is_ip(v: str) -> bool:
@@ -157,8 +161,32 @@ def read_text(path: Path) -> list[str]:
 
 
 # ---------- Dò ----------
-def detect(paragraphs: list[str]) -> list[Candidate]:
-    """Gợi ý các giá trị nên mã hoá; `checked` = mặc định chọn. Người dùng xem lại trước khi áp dụng."""
+_SMALL = {"of", "and", "the", "for", "to", "in", "on", "a", "an", "with", "by"}
+
+
+def _initials_match(acro: str, expansion: str) -> bool:
+    words = re.findall(r"[A-Za-z]+", expansion)
+    a = acro.upper()
+    return a == "".join(w[0].upper() for w in words) or a == "".join(w[0].upper() for w in words if w.lower() not in _SMALL)
+
+
+def load_safe() -> set[str]:
+    """Khoá (đã gấp) của mọi cụm 'SAFE: …' trong các từ điển mã hoá: không bao giờ dò hay mã hoá."""
+    from . import config
+
+    out = set()
+    for lines in config.load().get("anonymize_dicts", {}).values():
+        for line in lines:
+            kind, value = parse_dict_line(line)
+            if kind == "SAFE":
+                out.add(fold_key(value))
+    return out
+
+
+def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidate]:
+    """Gợi ý các giá trị nên mã hoá; `checked` = mặc định chọn. Người dùng xem lại trước khi áp dụng.
+    `safe`: khoá gấp của các cụm luôn bỏ qua (xem load_safe). Loại: Mã (chọn sẵn, gồm viết tắt chưa rõ), Thuật ngữ và Biến/định danh (không chọn sẵn)."""
+    safe = safe or set()
     paragraphs = [unicodedata.normalize("NFC", p) for p in paragraphs]  # file Word/PDF hay lẫn dạng tổ hợp: so khớp chữ thường cần cùng dạng
     text = "\n".join(paragraphs)
     found: dict[str, tuple[str, bool]] = {}
@@ -236,26 +264,47 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
         rx = _fold_rx([fold_key(v)]) if fold_key(v) else None
         return len(rx.findall(ftext)) if rx else 0
 
-    # viết tắt in hoa lặp lại (tên đơn vị/dự án viết tắt, có thể kèm số như BV3C): chỉ lấy khi ≥ 2 lần
+    # Tiền tố của mã có gạch nối (BVL trong BVL-GN-CNP) luôn là Mã dù có trong bảng thuật ngữ
+    prefixes = set()
+    for v, (kind, _) in found.items():
+        if kind == "PROJECT":
+            m0 = re.match(rf"(?:\d+\.)?([{UP}][{UP}\d]+)", v)
+            if m0:
+                prefixes.add(fold_key(m0.group(1)))
+    # thuật ngữ được định nghĩa bằng tiếng Anh ngay trong văn bản: "TDOA (Time Difference of Arrival)" / "Time Difference of Arrival (TDOA)"
+    defined = set()
+    for m in RX_DEFINED.finditer(text):
+        if _initials_match(m.group(1), m.group(2)):
+            defined.add(fold_key(m.group(1)))
+    for m in re.finditer(rf"((?:[A-Za-z]+[ \-]){{1,8}}[A-Za-z]+)[ \t]*\(([{UP}]{{2,8}})\)", text):
+        if _initials_match(m.group(2), m.group(1)):
+            defined.add(fold_key(m.group(2)))
+    # định danh/biến: FFT_WINDOW_FLAT, getUserName (văn bản thường không viết thế)
+    for m in RX_IDENT.finditer(text):
+        add(m.group(0), "IDENT", False)
+    # viết tắt in hoa lặp lại (có thể kèm số như BV3C): chỉ lấy khi ≥ 2 lần. Thuật ngữ công khai -> TECH; còn lại là mã (an toàn hơn: sót mới lộ)
     keys = {fold_key(v) for v in found}
     for m in RX_ACRONYM.finditer(text):
         a = m.group(0)
         if a not in ACRONYM_SKIP and a.lower() not in FORM_WORDS and fold_key(a) not in keys and sum(ch.isalpha() for ch in a) >= 2 and n_of(a) >= 2 and not lower_seen(a) and not is_vn_syllable(a):
-            found[a] = ("PROJECT", True)  # viết tắt in hoa lặp lại (BVL, MHTH…): mã dự án/đơn vị viết tắt
+            tech = fold_key(a) not in prefixes and (a in TECH_TERMS or fold_key(a) in defined)
+            found[a] = ("TECH", False) if tech else ("PROJECT", True)
             keys.add(fold_key(a))
     groups: dict[str, list] = {}
     for v, (kind, checked) in found.items():
         groups.setdefault(fold_key(v), []).append((v, kind, checked))
-    order = {k: i for i, k in enumerate(["PROJECT", "ORG", "PERSON", "EMAIL", "PHONE", "ID", "URL", "IP", "TERM"])}
+    order = {k: i for i, k in enumerate(["PROJECT", "ORG", "PERSON", "EMAIL", "PHONE", "ID", "URL", "IP", "TECH", "IDENT", "PLACE", "TERM"])}
     out = []
     for key, items in groups.items():
         rep = max(items, key=lambda it: text.count(it[0]))[0]  # dạng hay gặp nhất làm giá trị chuẩn
         kind = min((it[1] for it in items), key=lambda k: order.get(k, 99))
         checked = any(it[2] for it in items)
+        if key in safe:
+            continue
         n = n_of(rep)
         if n == 0:
             continue
-        if kind in ("TERM", "PLACE") and n < 2:
+        if kind in ("TERM", "PLACE", "IDENT", "TECH") and n < 2:
             continue
         if kind == "TERM":
             checked = False  # cụm viết hoa lặp (nhãn giao diện, tiêu đề…) nhiều khả năng không phải tên: để người dùng tự tick
