@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.9.9**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.9.10**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -21,7 +21,7 @@
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
 
-## 2026-10-23 — v0.9.7 (không phát hành, CI Linux lỗi smoke) → v0.9.8 (cũng không phát hành: runner Linux thiếu libEGL) → v0.9.9
+## 2026-10-23 — v0.9.7 (không phát hành, CI Linux lỗi smoke) → v0.9.8 (cũng không phát hành: runner Linux thiếu libEGL) → v0.9.9 (smoke Linux vẫn lỗi; build Linux chuyển sang ubuntu-latest) → v0.9.10
 - v0.9.6 không phát hành: bước smoke test trên Linux CI lỗi vì `pynput` cần X server (runner không có). Sửa: chạy smoke dưới `xvfb-run`. Windows chưa từng chạy tới bước smoke.
 - Protect/Unlock nhận .docx/.xlsx/.pptx: đặt/gỡ mật khẩu MỞ file thật (`msoffcrypto-tool`, `magichub/wordlock.py`); Unlock còn gỡ khoá chỉ-đọc (Restrict Editing) của Word có mật khẩu. Thư viện mới `msoffcrypto-tool>=5,<6` (kéo `cryptography`): kiểm tra dung lượng asset so với v0.9.5.
 - Mã hoá: bảng mapping bắt buộc có mật khẩu mở file; Giải mã hỏi mật khẩu.
