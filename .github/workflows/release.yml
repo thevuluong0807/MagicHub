@@ -24,12 +24,12 @@ jobs:
           V=$(python -c "import magichub; print(magichub.__version__)")
           case "${{ matrix.name }}" in
             windows)
-              pyinstaller --noconfirm --name MagicHub --windowed --collect-submodules magichub --collect-all pdf2docx entry.py
+              pyinstaller --noconfirm --name MagicHub --windowed --collect-submodules magichub --collect-submodules pynput --collect-all pdf2docx entry.py
               (cd dist && 7z a ../MagicHub-windows.zip MagicHub) ;;
             macos)
               bash packaging/macos/build.sh ;;
             linux)
-              pyinstaller --noconfirm --name MagicHub --windowed --collect-submodules magichub --collect-all pdf2docx entry.py
+              pyinstaller --noconfirm --name MagicHub --windowed --collect-submodules magichub --collect-submodules pynput --collect-all pdf2docx entry.py
               (cd dist && tar czf ../MagicHub-linux.tar.gz MagicHub)
               curl -fsSL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
               chmod +x appimagetool
