@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.9.6**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.9.7**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -20,6 +20,13 @@
 
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
+
+## 2026-10-23 — v0.9.7
+- v0.9.6 không phát hành: bước smoke test trên Linux CI lỗi vì `pynput` cần X server (runner không có). Sửa: chạy smoke dưới `xvfb-run`. Windows chưa từng chạy tới bước smoke.
+- Protect/Unlock nhận .docx/.xlsx/.pptx: đặt/gỡ mật khẩu MỞ file thật (`msoffcrypto-tool`, `magichub/wordlock.py`); Unlock còn gỡ khoá chỉ-đọc (Restrict Editing) của Word có mật khẩu. Thư viện mới `msoffcrypto-tool>=5,<6` (kéo `cryptography`): kiểm tra dung lượng asset so với v0.9.5.
+- Mã hoá: bảng mapping bắt buộc có mật khẩu mở file; Giải mã hỏi mật khẩu.
+- Dò mã: `BV3C` không bị loại bởi dạng chữ thường trong tên bảng (`bv3c.system`); tên đơn vị quân sự (Cục tác chiến điện tử…); tên riêng cuối tổ chức dài (Viettel); mã dính liền chữ khác (BVLclient, myBVL, BVL_server).
+- Báo lỗi rõ khi file .docx thực ra là .doc cũ / có mật khẩu / rỗng.
 
 ## 2026-10-23 — v0.9.6: chặn lặp lại lỗi đóng gói
 - Phân biệt Thuật ngữ / Mã / Biến (`anonymize.detect`): loại mới `TECH` "Thuật ngữ" và `IDENT` "Biến/định danh" (không chọn sẵn), `PROJECT` đổi nhãn thành "Mã" (chọn sẵn, gồm viết tắt chưa rõ). Thuật ngữ = có trong `techterms.TECH_TERMS` (viễn thông/radar/điện tử/IT) hoặc được định nghĩa tiếng Anh ngay trong văn bản (initials khớp: "TDOA (Time Difference of Arrival)"); tiền tố của mã có gạch nối (BVL trong BVL-GN-CNP, RADAR trong RADAR-01) luôn là Mã; định danh = snake_case/camelCase/PascalCase (FFT_WINDOW_FLAT: gạch dưới không còn là dấu nối của mã). Loại từ điển `SAFE: <từ>` = không bao giờ dò/mã hoá (áp dụng cho mọi từ điển; `load_safe`). Test `test_detect_term_vs_code`. Giới hạn: bảng thuật ngữ không đầy đủ, mã dự án trùng tên thuật ngữ cần chỉnh tay.
