@@ -147,13 +147,28 @@ def _parts_of(zf: zipfile.ZipFile):
                 yield name, p_tag, t_tag
 
 
+def _open_zip(path, *args) -> zipfile.ZipFile:
+    """ZipFile, nhưng báo lỗi dễ hiểu khi đuôi .docx/.xlsx/.pptx mà ruột không phải file Office mới (hay gặp: .doc đổi đuôi, file khoá ~$, file rỗng)."""
+    try:
+        return zipfile.ZipFile(path, *args)
+    except zipfile.BadZipFile:
+        head = Path(path).read_bytes()[:8] if args == () else b""
+        why = (
+            "là file Office cũ (.doc/.xls/.ppt) đổi đuôi, hoặc file đặt mật khẩu - hãy mở bằng Word/Excel rồi 'Lưu thành' .docx/.xlsx/.pptx"
+            if head.startswith(b"\xd0\xcf\x11\xe0")
+            else "rỗng hoặc là file khoá tạm (~$...) - Word đang mở file?" if len(head) < 4 or Path(path).name.startswith("~$")
+            else "không phải file Office hợp lệ (có thể bị hỏng hoặc đổi đuôi)"
+        )
+        raise ValueError(f"'{Path(path).name}' {why}") from None
+
+
 def read_text(path: Path) -> list[str]:
     """Các đoạn chữ của file (mỗi đoạn một chuỗi)."""
     path = Path(path)
     if path.suffix.lower().lstrip(".") in TEXT:
         return path.read_text("utf-8", errors="replace").splitlines()
     out = []
-    with zipfile.ZipFile(path) as zf:
+    with _open_zip(path) as zf:
         for name, p_tag, t_tag in _parts_of(zf):
             root = etree.fromstring(zf.read(name))
             out += ["".join(t.text or "" for t in ts) for _, ts in _paragraphs(root, p_tag, t_tag)]
@@ -502,7 +517,7 @@ def transform(src: Path, out: Path, find, scrub: bool = False, restore: bool = F
             res.append(line)
         out.write_text("\n".join(res), "utf-8")
         return n
-    with zipfile.ZipFile(src) as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+    with _open_zip(src) as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
         tags = {name: (p, t) for name, p, t in _parts_of(zin)}
         for info in zin.infolist():
             data = zin.read(info)

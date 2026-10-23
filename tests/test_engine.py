@@ -111,6 +111,17 @@ def test_compress_office_target(td):
         organize._shrink = real
 
 
+def test_anonymize_bad_zip(td):
+    from magichub import anonymize as an
+    f = Path(td) / "old.docx"
+    f.write_bytes(b"\xd0\xcf\x11\xe0" + b"x" * 20)
+    try:
+        an.read_text(f)
+        assert False
+    except ValueError as e:
+        assert "old.docx" in str(e) and "Office cũ" in str(e)
+
+
 def test_anonymize(td):
     """Dò + mã hoá + Restore vòng tròn trên docx/xlsx/pptx/txt: không còn giá trị gốc, khôi phục đúng từng đoạn, giữ định dạng."""
     import docx, openpyxl, pptx
