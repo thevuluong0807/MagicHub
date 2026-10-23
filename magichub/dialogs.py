@@ -6,7 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QHeaderView, QTableWidget, QTableWidgetItem, QDialog, QFrame, QDialogButtonBox, QFileDialog, QFormLayout, QHBoxLayout,
-                               QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox,
+                               QInputDialog, QLabel, QLineEdit, QListWidget, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox,
                                QVBoxLayout, QWidget)
 
 
@@ -397,20 +397,175 @@ def ask_hotkey(mods: list[str], key: str) -> tuple[list[str], str] | None:
     return pending["v"] if dlg.exec() == QDialog.Accepted and "v" in pending else None
 
 
-KIND_PREFIXES = {"PERSON", "ORG", "PROJECT", "EMAIL", "PHONE", "URL", "ID", "IP", "TERM", "CUSTOM"}
+DICT_KINDS = ["PERSON", "ORG", "PROJECT", "PLACE", "EMAIL", "PHONE", "URL", "ID", "IP", "TERM"]
+
+
+def ask_dictionaries(select: str | None = None) -> dict | None:
+    """Quản lý từ điển mã hoá: danh sách từ điển bên trái, bảng (loại, giá trị) bên phải; nhập/xuất .txt. Lưu vào config khi bấm Lưu."""
+    from . import config
+    from .anonymize import KIND_LABEL, format_dict_line, parse_dict_line
+
+    cfg = config.load()
+    data: dict[str, list[tuple[str, str]]] = {n: [parse_dict_line(l) for l in lines if l.strip()] for n, lines in cfg.get("anonymize_dicts", {}).items()}
+    dlg = QDialog()
+    dlg.setWindowTitle("Từ điển mã hoá")
+    dlg.resize(760, 520)
+    lay = QVBoxLayout(dlg)
+    lay.setContentsMargins(24, 20, 24, 20)
+    header(lay, "Từ điển mã hoá", "Các cụm trong từ điển luôn được mã hoá khi bạn bật \"Dùng từ điển\" (khớp không phân biệt hoa thường, dấu, khoảng trắng).")
+    body = QHBoxLayout()
+    lay.addLayout(body, 1)
+
+    left = QVBoxLayout()
+    names = QListWidget()
+    names.setMaximumWidth(200)
+    left.addWidget(names, 1)
+    body.addLayout(left)
+    right = QVBoxLayout()
+    table = QTableWidget(0, 2)
+    table.setHorizontalHeaderLabels(["Loại", "Giá trị"])
+    table.verticalHeader().setVisible(False)
+    table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+    table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+    right.addWidget(table, 1)
+    body.addLayout(right, 1)
+
+    state = {"cur": None}
+
+    def kind_combo(kind):
+        c = QComboBox()
+        for k in DICT_KINDS:
+            c.addItem(KIND_LABEL.get(k, k), k)
+        c.setCurrentIndex(max(0, DICT_KINDS.index(kind) if kind in DICT_KINDS else DICT_KINDS.index("TERM")))
+        return c
+
+    def add_row(kind="TERM", value=""):
+        r = table.rowCount()
+        table.insertRow(r)
+        table.setCellWidget(r, 0, kind_combo(kind))
+        table.setItem(r, 1, QTableWidgetItem(value))
+        return r
+
+    def collect():
+        rows = []
+        for r in range(table.rowCount()):
+            v = (table.item(r, 1).text() if table.item(r, 1) else "").strip()
+            if v:
+                rows.append((table.cellWidget(r, 0).currentData(), v))
+        return rows
+
+    def commit():
+        if state["cur"] in data:
+            data[state["cur"]] = collect()
+
+    def show(name):
+        commit()
+        state["cur"] = name
+        table.setRowCount(0)
+        for kind, value in data.get(name, []):
+            add_row(kind, value)
+
+    def refill(select_name=None):
+        names.blockSignals(True)
+        names.clear()
+        names.addItems(sorted(data))
+        names.blockSignals(False)
+        if select_name in data:
+            names.setCurrentRow(sorted(data).index(select_name))
+        elif data:
+            names.setCurrentRow(0)
+        else:
+            state["cur"] = None
+            table.setRowCount(0)
+
+    names.currentTextChanged.connect(lambda n: show(n) if n else None)
+
+    def new():
+        name, ok = QInputDialog.getText(dlg, "Từ điển mới", "Tên từ điển (ví dụ tên dự án):")
+        name = name.strip()
+        if ok and name and name not in data:
+            commit()
+            data[name] = []
+            refill(name)
+
+    def rename():
+        old = state["cur"]
+        if not old:
+            return
+        name, ok = QInputDialog.getText(dlg, "Đổi tên", "Tên mới:", text=old)
+        name = name.strip()
+        if ok and name and name != old and name not in data:
+            commit()
+            data[name] = data.pop(old)
+            refill(name)
+
+    def delete():
+        old = state["cur"]
+        if old and QMessageBox.question(dlg, "Xoá từ điển", f"Xoá từ điển \"{old}\"?") == QMessageBox.Yes:
+            data.pop(old)
+            state["cur"] = None
+            refill()
+
+    def del_rows():
+        for r in sorted({i.row() for i in table.selectedIndexes()} | {table.currentRow()}, reverse=True):
+            if r >= 0:
+                table.removeRow(r)
+
+    def import_file():
+        if not state["cur"]:
+            return
+        path = QFileDialog.getOpenFileName(dlg, "Nhập từ file", "", "Văn bản (*.txt *.csv)")[0]
+        if path:
+            have = {v.lower() for _, v in collect()}
+            for line in Path(path).read_text("utf-8-sig", errors="replace").splitlines():
+                line = line.strip().replace(",", ": ", 1) if "," in line and ":" not in line else line.strip()
+                if line:
+                    kind, value = parse_dict_line(line)
+                    if value.lower() not in have:
+                        add_row(kind, value)
+                        have.add(value.lower())
+
+    def export_file():
+        if not state["cur"]:
+            return
+        path = QFileDialog.getSaveFileName(dlg, "Xuất từ điển", f"{state['cur']}.txt", "Văn bản (*.txt)")[0]
+        if path:
+            Path(path).write_text("\n".join(format_dict_line(k, v) for k, v in collect()) + "\n", "utf-8")
+
+    for text, fn in (("Mới…", new), ("Đổi tên…", rename), ("Xoá", delete)):
+        b = QPushButton(text)
+        b.clicked.connect(lambda _=False, f=fn: f())
+        left.addWidget(b)
+    row = QHBoxLayout()
+    for text, fn in (("Thêm dòng", lambda: table.setCurrentCell(add_row(), 1)), ("Xoá dòng đã chọn", del_rows), ("Nhập từ file…", import_file), ("Xuất ra file…", export_file)):
+        b = QPushButton(text)
+        b.clicked.connect(lambda _=False, f=fn: f())
+        row.addWidget(b)
+    row.addStretch(1)
+    right.addLayout(row)
+    lay.addWidget(buttons(dlg, "Lưu"))
+    refill(select)
+    _front(dlg)
+    if dlg.exec() != QDialog.Accepted:
+        return None
+    commit()
+    cfg["anonymize_dicts"] = {n: [format_dict_line(k, v) for k, v in rows] for n, rows in data.items()}
+    if cfg.get("anonymize_last_dict") not in data:
+        cfg.pop("anonymize_last_dict", None)
+    config.save(cfg)
+    return cfg["anonymize_dicts"]
 
 
 def ask_anonymize(cands) -> dict | None:
-    """Bảng ứng viên (tick để mã hoá) + từ điển theo dự án (luôn áp dụng, sửa tay được) + xoá metadata.
-    Trả {entries, custom, dictionary, scrub}. Dòng từ điển: 'Viettel' hoặc 'ORG: Viettel' (PERSON/ORG/PROJECT/EMAIL/…)."""
+    """Bảng ứng viên (tick để mã hoá) + tuỳ chọn dùng từ điển (chọn từ điển, mở hộp quản lý) + xoá metadata.
+    Trả {entries, custom, dictionary, scrub}; dictionary = "" nếu không dùng từ điển."""
     from . import config
-    from .anonymize import KIND_LABEL
+    from .anonymize import KIND_LABEL, format_dict_line, parse_dict_line
 
     cfg = config.load()
-    dicts = cfg.setdefault("anonymize_dicts", {})
     dlg = QDialog()
     dlg.setWindowTitle("Mã hoá văn bản")
-    dlg.resize(700, 700)
+    dlg.resize(700, 640)
     lay = QVBoxLayout(dlg)
     lay.setContentsMargins(24, 20, 24, 20)
     header(lay, "Mã hoá văn bản", "Tick các mục cần thay bằng mã. Khớp không phân biệt hoa thường, dấu, khoảng trắng. Gợi ý tự dò có thể sót hoặc nhầm: hãy xem lại.")
@@ -439,25 +594,46 @@ def ask_anonymize(cands) -> dict | None:
     row.addStretch(1)
     lay.addLayout(row)
 
-    lay.addWidget(QLabel("Từ điển dự án (luôn được mã hoá, kể cả khi app không dò ra; mỗi dòng một cụm, tuỳ chọn tiền tố 'ORG: '):"))
+    drow = QHBoxLayout()
+    use_dict = QCheckBox("Dùng từ điển mã hoá:")
     combo = QComboBox()
-    combo.setEditable(True)
-    combo.addItems(["(không dùng)"] + sorted(dicts))
-    lay.addWidget(combo)
-    extra = QPlainTextEdit()
-    extra.setFixedHeight(100)
-    lay.addWidget(extra)
-
-    def load_dict():
-        name = combo.currentText().strip()
-        if name in dicts:  # tên mới gõ: giữ nguyên nội dung đang có
-            extra.setPlainText("\n".join(dicts[name]))
-
-    combo.currentTextChanged.connect(lambda _=None: load_dict())
-    if len(dicts) == 1 or cfg.get("anonymize_last_dict") in dicts:
-        combo.setCurrentText(cfg.get("anonymize_last_dict") if cfg.get("anonymize_last_dict") in dicts else next(iter(dicts)))
+    manage = QPushButton("Quản lý từ điển…")
+    drow.addWidget(use_dict)
+    drow.addWidget(combo, 1)
+    drow.addWidget(manage)
+    lay.addLayout(drow)
     save_ticked = QCheckBox("Lưu các mục đã tick vào từ điển này (lần sau tự mã hoá)")
     lay.addWidget(save_ticked)
+
+    def reload(select=None):
+        names = sorted(config.load().get("anonymize_dicts", {}))
+        combo.clear()
+        combo.addItems(names)
+        if select in names:
+            combo.setCurrentText(select)
+        elif cfg.get("anonymize_last_dict") in names:
+            combo.setCurrentText(cfg["anonymize_last_dict"])
+        enabled = bool(names)
+        use_dict.setEnabled(enabled)
+        if not enabled:
+            use_dict.setChecked(False)
+        sync()
+
+    def sync():
+        on = use_dict.isChecked() and combo.count() > 0
+        combo.setEnabled(on)
+        save_ticked.setEnabled(on)
+
+    use_dict.toggled.connect(lambda _=None: sync())
+
+    def open_manager():
+        if ask_dictionaries(combo.currentText() or None) is not None:
+            reload(combo.currentText())
+
+    manage.clicked.connect(lambda _=False: open_manager())
+    reload()
+    use_dict.setChecked(bool(cfg.get("anonymize_use_dict", True)) and combo.count() > 0)
+    sync()
     scrub = QCheckBox("Xoá metadata tác giả/công ty của file")
     scrub.setChecked(True)
     lay.addWidget(scrub)
@@ -466,18 +642,17 @@ def ask_anonymize(cands) -> dict | None:
     if dlg.exec() != QDialog.Accepted:
         return None
     entries = [{"value": c.value, "kind": c.kind, "alias_of": c.alias_of} for r, c in enumerate(cands) if table.item(r, 0).checkState() == Qt.Checked]
-    name = combo.currentText().strip()
-    lines = [t.strip() for t in extra.toPlainText().splitlines() if t.strip()]
-    use_dict = name and name != "(không dùng)"
-    if use_dict:
-        if save_ticked.isChecked():
-            have = {l.partition(":")[2].strip().lower() if l.partition(":")[0].strip().upper() in KIND_PREFIXES else l.lower() for l in lines}
-            lines += [f"{e['kind']}: {e['value']}" for e in entries if e["value"].lower() not in have]
-        dicts[name] = lines
+    name = combo.currentText() if use_dict.isChecked() and combo.count() else ""
+    cfg = config.load()
+    cfg["anonymize_use_dict"] = use_dict.isChecked()
+    if name:
         cfg["anonymize_last_dict"] = name
-        config.save(cfg)
-        lines = []  # đã nằm trong từ điển, engine đọc từ đó
-    return {"entries": entries, "custom": lines, "dictionary": name if use_dict else "", "scrub": scrub.isChecked()}
+        if save_ticked.isChecked():
+            lines = cfg.setdefault("anonymize_dicts", {}).setdefault(name, [])
+            have = {parse_dict_line(l)[1].lower() for l in lines}
+            lines += [format_dict_line(e["kind"], e["value"]) for e in entries if e["value"].lower() not in have]
+    config.save(cfg)
+    return {"entries": entries, "custom": [], "dictionary": name, "scrub": scrub.isChecked()}
 
 
 def ask_mapping() -> dict | None:

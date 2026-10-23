@@ -267,6 +267,19 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
     return sorted(out, key=lambda c: (order.get(c.kind, 99), -c.count, c.value))
 
 
+# ---------- Từ điển ----------
+def parse_dict_line(line: str) -> tuple[str, str]:
+    """'ORG: Viettel' -> ('ORG', 'Viettel'); dòng không có tiền tố loại hợp lệ -> ('TERM', dòng)."""
+    kind, sep, rest = line.partition(":")
+    if sep and kind.strip().upper() in PREFIX and rest.strip():
+        return ("TERM" if kind.strip().upper() == "CUSTOM" else kind.strip().upper()), rest.strip()
+    return "TERM", line.strip()
+
+
+def format_dict_line(kind: str, value: str) -> str:
+    return f"{kind}: {value.strip()}"
+
+
 # ---------- Mã ----------
 def assign_tokens(entries: list[tuple]) -> dict[str, str]:
     """[(giá trị, loại[, mục gốc])] -> {giá trị: '[ORG_1]'}; đánh số theo thứ tự trong danh sách, mỗi loại một bộ đếm.

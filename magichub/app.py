@@ -130,6 +130,7 @@ class Hub(QObject):
         clip.addAction("Mã hoá văn bản trong clipboard…", self.anon_clipboard)
         clip.addAction("Giải mã văn bản trong clipboard", self.restore_clipboard)
         clip.addAction("Xoá mapping clipboard", self.clear_clip_mapping)
+        menu.addAction("Từ điển mã hoá…", self.manage_dictionaries)
         menu.addAction("Mở thư mục cấu hình", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(config.config_dir()))))
         menu.addAction("Thoát", app.quit)
         self._menu = menu
@@ -404,6 +405,11 @@ class Hub(QObject):
             return self.notify("MagicHub", "Không thấy mã nào khớp mapping gần nhất trong clipboard", error=True)
         self.app.clipboard().setText(out)
         self.notify("Đã giải mã clipboard", f"{n} chỗ đã trả lại giá trị gốc, văn bản đã nằm trong clipboard.")
+
+    def manage_dictionaries(self):
+        from .dialogs import ask_dictionaries
+
+        ask_dictionaries()
 
     def clear_clip_mapping(self):
         self._clip_file().unlink(missing_ok=True)

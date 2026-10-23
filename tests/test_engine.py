@@ -285,6 +285,78 @@ Số Serial: 1; Sđ"""
     assert an.is_vn_syllable("CHÍ") and an.is_vn_syllable("quân") and not an.is_vn_syllable("BVL") and not an.is_vn_syllable("UAV")
 
 
+def test_dictionary_dialogs(td):
+    """Hộp thoại quản lý từ điển (tạo, thêm dòng, nhập file, lưu config) + checkbox 'Dùng từ điển' trong hộp Mã hoá."""
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QInputDialog, QListWidget,
+                                   QPushButton, QTableWidget, QTableWidgetItem)
+    from magichub import anonymize as an, config, dialogs
+    from magichub.actions.anon import entries_from
+
+    app = QApplication.instance() or QApplication([])
+    real_dir, real_text, real_open = config.config_dir, QInputDialog.getText, QFileDialog.getOpenFileName
+    config.config_dir = lambda: td
+    top = lambda: next(w for w in app.topLevelWidgets() if isinstance(w, QDialog) and w.isVisible())
+    btn = lambda dlg, text: next(b for b in dlg.findChildren(QPushButton) if b.text() == text)
+    try:
+        # 1) quản lý: tạo từ điển "BVL", thêm 1 dòng tay + nhập file có dòng trùng
+        imp = td / "terms.txt"
+        imp.write_text("ORG: Viettel\nPERSON: Nguyễn Văn An\nviettel\nMã bí mật X\n", "utf-8")
+        QInputDialog.getText = staticmethod(lambda *a, **k: ("BVL", True))
+        QFileDialog.getOpenFileName = staticmethod(lambda *a, **k: (str(imp), ""))
+
+        def drive_manager():
+            d = top()
+            btn(d, "Mới…").click()
+            btn(d, "Thêm dòng").click()
+            t = d.findChild(QTableWidget)
+            t.setItem(0, 1, QTableWidgetItem("Sao Hỏa"))
+            t.cellWidget(0, 0).setCurrentIndex(dialogs.DICT_KINDS.index("ORG"))
+            btn(d, "Nhập từ file…").click()  # "viettel" trùng "Viettel" (không phân biệt hoa thường) nên bị bỏ
+            d.findChild(QDialogButtonBox).button(QDialogButtonBox.Ok).click()
+
+        QTimer.singleShot(300, drive_manager)
+        saved = dialogs.ask_dictionaries()
+        assert saved == {"BVL": ["ORG: Sao Hỏa", "ORG: Viettel", "PERSON: Nguyễn Văn An", "TERM: Mã bí mật X"]}, saved
+        assert config.load()["anonymize_dicts"] == saved
+
+        # 2) hộp Mã hoá: tick "Dùng từ điển" -> trả tên từ điển; bỏ tick -> rỗng; engine đọc các dòng thành mục
+        cands = an.detect(["Công ty TNHH Sao Mai ký. Công ty TNHH Sao Mai ok."])
+
+        def drive_anon(use):
+            def go():
+                d = top()
+                c = next(x for x in d.findChildren(QCheckBox) if x.text().startswith("Dùng từ điển"))
+                assert c.isEnabled() and c.isChecked()  # có từ điển -> mặc định bật
+                c.setChecked(use)
+                d.findChild(QDialogButtonBox).button(QDialogButtonBox.Ok).click()
+            QTimer.singleShot(300, go)
+
+        drive_anon(True)
+        r = dialogs.ask_anonymize(cands)
+        assert r["dictionary"] == "BVL" and r["custom"] == []
+        got = entries_from(r, [])
+        assert ("Sao Hỏa", "ORG") in got and ("Mã bí mật X", "TERM") in got
+        drive_anon(False)
+        assert dialogs.ask_anonymize(cands)["dictionary"] == "" and config.load()["anonymize_use_dict"] is False
+
+        # 3) chưa có từ điển nào: checkbox bị khoá, không lỗi
+        cfg = config.load()
+        cfg["anonymize_dicts"] = {}
+        config.save(cfg)
+
+        def go2():
+            d = top()
+            c = next(x for x in d.findChildren(QCheckBox) if x.text().startswith("Dùng từ điển"))
+            assert not c.isEnabled() and not c.isChecked()
+            d.findChild(QDialogButtonBox).button(QDialogButtonBox.Ok).click()
+
+        QTimer.singleShot(300, go2)
+        assert dialogs.ask_anonymize(cands)["dictionary"] == ""
+    finally:
+        config.config_dir, QInputDialog.getText, QFileDialog.getOpenFileName = real_dir, real_text, real_open
+
+
 def test_clipboard_anonymize(td):
     """Menu khay: mã hoá clipboard -> dán cho AI -> giải mã clipboard, bằng mapping gần nhất lưu cục bộ."""
     from PySide6.QtWidgets import QApplication
@@ -883,7 +955,7 @@ def test_hub_toast(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_compress_office_target, test_anonymize, test_anonymize_detect_quality, test_clipboard_anonymize, test_no_console_window, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_compress_office_target, test_anonymize, test_anonymize_detect_quality, test_dictionary_dialogs, test_clipboard_anonymize, test_no_console_window, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)
