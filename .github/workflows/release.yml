@@ -10,8 +10,9 @@ jobs:
       matrix:
         include:
           - {os: windows-latest, name: windows}
-          - {os: ubuntu-latest, name: linux}
-          - {os: macos-latest, name: macos}
+          # TẠM TẮT (chỉ phát hành Windows ở v0.9.11): bỏ dấu # để bật lại Linux
+          # - {os: ubuntu-latest, name: linux}
+          # - {os: macos-latest, name: macos}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
