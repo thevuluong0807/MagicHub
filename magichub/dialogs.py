@@ -397,18 +397,23 @@ def ask_hotkey(mods: list[str], key: str) -> tuple[list[str], str] | None:
     return pending["v"] if dlg.exec() == QDialog.Accepted and "v" in pending else None
 
 
+KIND_PREFIXES = {"PERSON", "ORG", "PROJECT", "EMAIL", "PHONE", "URL", "ID", "IP", "TERM", "CUSTOM"}
+
+
 def ask_anonymize(cands) -> dict | None:
-    """Bảng ứng viên (tick để mã hoá) + ô thêm tay (nhớ lại lần sau) + xoá metadata. Trả {entries, custom, scrub}."""
+    """Bảng ứng viên (tick để mã hoá) + từ điển theo dự án (luôn áp dụng, sửa tay được) + xoá metadata.
+    Trả {entries, custom, dictionary, scrub}. Dòng từ điển: 'Viettel' hoặc 'ORG: Viettel' (PERSON/ORG/PROJECT/EMAIL/…)."""
     from . import config
     from .anonymize import KIND_LABEL
 
     cfg = config.load()
+    dicts = cfg.setdefault("anonymize_dicts", {})
     dlg = QDialog()
     dlg.setWindowTitle("Mã hoá văn bản")
-    dlg.resize(680, 620)
+    dlg.resize(700, 700)
     lay = QVBoxLayout(dlg)
     lay.setContentsMargins(24, 20, 24, 20)
-    header(lay, "Mã hoá văn bản", "Tick các mục cần thay bằng mã. Gợi ý tự dò có thể sót hoặc nhầm: hãy xem lại, nhất là tên người và cụm viết hoa.")
+    header(lay, "Mã hoá văn bản", "Tick các mục cần thay bằng mã. Khớp không phân biệt hoa thường, dấu, khoảng trắng. Gợi ý tự dò có thể sót hoặc nhầm: hãy xem lại.")
     table = QTableWidget(len(cands), 4)
     table.setHorizontalHeaderLabels(["Mã hoá", "Loại", "Giá trị", "Số lần"])
     table.verticalHeader().setVisible(False)
@@ -433,10 +438,26 @@ def ask_anonymize(cands) -> dict | None:
         row.addWidget(b)
     row.addStretch(1)
     lay.addLayout(row)
-    lay.addWidget(QLabel("Thêm tay (mỗi dòng một cụm; nhớ cho lần sau):"))
-    extra = QPlainTextEdit("\n".join(cfg.get("anonymize_terms", [])))
-    extra.setFixedHeight(80)
+
+    lay.addWidget(QLabel("Từ điển dự án (luôn được mã hoá, kể cả khi app không dò ra; mỗi dòng một cụm, tuỳ chọn tiền tố 'ORG: '):"))
+    combo = QComboBox()
+    combo.setEditable(True)
+    combo.addItems(["(không dùng)"] + sorted(dicts))
+    lay.addWidget(combo)
+    extra = QPlainTextEdit()
+    extra.setFixedHeight(100)
     lay.addWidget(extra)
+
+    def load_dict():
+        name = combo.currentText().strip()
+        if name in dicts:  # tên mới gõ: giữ nguyên nội dung đang có
+            extra.setPlainText("\n".join(dicts[name]))
+
+    combo.currentTextChanged.connect(lambda _=None: load_dict())
+    if len(dicts) == 1 or cfg.get("anonymize_last_dict") in dicts:
+        combo.setCurrentText(cfg.get("anonymize_last_dict") if cfg.get("anonymize_last_dict") in dicts else next(iter(dicts)))
+    save_ticked = QCheckBox("Lưu các mục đã tick vào từ điển này (lần sau tự mã hoá)")
+    lay.addWidget(save_ticked)
     scrub = QCheckBox("Xoá metadata tác giả/công ty của file")
     scrub.setChecked(True)
     lay.addWidget(scrub)
@@ -444,11 +465,19 @@ def ask_anonymize(cands) -> dict | None:
     _front(dlg)
     if dlg.exec() != QDialog.Accepted:
         return None
-    custom = [t.strip() for t in extra.toPlainText().splitlines() if t.strip()]
-    cfg["anonymize_terms"] = custom
-    config.save(cfg)
     entries = [{"value": c.value, "kind": c.kind} for r, c in enumerate(cands) if table.item(r, 0).checkState() == Qt.Checked]
-    return {"entries": entries, "custom": custom, "scrub": scrub.isChecked()}
+    name = combo.currentText().strip()
+    lines = [t.strip() for t in extra.toPlainText().splitlines() if t.strip()]
+    use_dict = name and name != "(không dùng)"
+    if use_dict:
+        if save_ticked.isChecked():
+            have = {l.partition(":")[2].strip().lower() if l.partition(":")[0].strip().upper() in KIND_PREFIXES else l.lower() for l in lines}
+            lines += [f"{e['kind']}: {e['value']}" for e in entries if e["value"].lower() not in have]
+        dicts[name] = lines
+        cfg["anonymize_last_dict"] = name
+        config.save(cfg)
+        lines = []  # đã nằm trong từ điển, engine đọc từ đó
+    return {"entries": entries, "custom": lines, "dictionary": name if use_dict else "", "scrub": scrub.isChecked()}
 
 
 def ask_mapping() -> dict | None:

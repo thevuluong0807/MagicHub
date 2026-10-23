@@ -162,6 +162,38 @@ def test_anonymize(td):
     except ValueError:
         assert not list(td.glob("other_restored*"))
 
+    # khớp không phân biệt hoa thường/dấu/khoảng trắng; biến thể có mã riêng và Restore trả đúng nguyên văn từng chỗ
+    v = td / "var.docx"
+    dv = docx.Document()
+    dv.add_paragraph("Tập đoàn Viettel; TẬP ĐOÀN VIETTEL; tập  đoàn viettel; Tap doan Viettel và VIETTEL.")
+    dv.add_paragraph("Nguyễn Văn An, NGUYỄN VĂN AN, nguyen van an.")
+    dv.save(v)
+    ents = [{"value": "Tập đoàn Viettel", "kind": "ORG"}, {"value": "Viettel", "kind": "ORG"}, {"value": "Nguyễn Văn An", "kind": "PERSON"}]
+    (a, m) = run("edit.anonymize", [v], entries=ents)
+    got = "\n".join(an.read_text(a))
+    assert "iettel" not in got.lower() and "nguyen" not in got.lower() and "nguyễn" not in got.lower() and "đoàn" not in got.lower(), got
+    ws = openpyxl.load_workbook(m)["Mapping"]
+    rows = {r[1]: r[0] for r in ws.iter_rows(min_row=2, values_only=True)}
+    assert rows["Tập đoàn Viettel"] == "[ORG_1]" and rows["TẬP ĐOÀN VIETTEL"].startswith("[ORG_1v") and len(set(rows.values())) == len(rows)
+    (back,) = run("edit.restore", [a], mapping=str(m))
+    assert an.read_text(back) == an.read_text(v), (an.read_text(back), an.read_text(v))
+    assert any("Số lần" in str(c.value) for c in ws[1]) and "ORG_1" in " ".join(an.read_text(a))
+    # từ điển theo dự án: luôn áp dụng dù app không dò ra
+    from magichub import config
+    cfg = config.load()
+    cfg["anonymize_dicts"] = {"BVL": ["ORG: Sao Hỏa", "Mã bí mật X"]}
+    config.save(cfg)
+    try:
+        t2 = td / "d.txt"
+        t2.write_text("Gửi SAO HỎA mã bí mật x.", "utf-8")
+        (a2, m2) = run("edit.anonymize", [t2], entries=[{"value": "Gửi", "kind": "TERM"}], dictionary="BVL")
+        assert "sao" not in a2.read_text("utf-8").lower() and "bí mật" not in a2.read_text("utf-8").lower()
+        (r2,) = run("edit.restore", [a2], mapping=str(m2))
+        assert r2.read_text("utf-8") == "Gửi SAO HỎA mã bí mật x."
+    finally:
+        cfg.pop("anonymize_dicts", None)
+        config.save(cfg)
+
     # xlsx / pptx / txt
     wb = openpyxl.Workbook()
     wb.active["A1"] = "Khách hàng: Tập đoàn Viettel"

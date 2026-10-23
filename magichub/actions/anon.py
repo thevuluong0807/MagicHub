@@ -21,24 +21,40 @@ def _ask_anon(files):
     return ask_anonymize(an.detect(paras))
 
 
+def parse_term(line: str) -> tuple[str, str]:
+    """'ORG: Viettel' -> ('Viettel', 'ORG'); dòng không có tiền tố loại hợp lệ -> (dòng, 'CUSTOM')."""
+    kind, sep, rest = line.partition(":")
+    if sep and kind.strip().upper() in an.PREFIX and rest.strip():
+        return rest.strip(), kind.strip().upper()
+    return line.strip(), "CUSTOM"
+
+
+def dictionary_terms(name: str) -> list[tuple[str, str]]:
+    from .. import config
+
+    return [parse_term(t) for t in config.load().get("anonymize_dicts", {}).get(name, []) if t.strip()]
+
+
 @action("edit.anonymize", "edit", "Mã hoá", "Thay tên người, đơn vị, mã dự án, email… bằng mã [PERSON_1], [ORG_2]…; tạo bảng mapping để Restore (docx, xlsx, pptx, txt, md)",
         kinds=KINDS, ask=_ask_anon, check=supported)
 def anonymize(files, p):
-    """params.entries: [{value, kind}] (bỏ trống = tự chọn theo gợi ý mặc định); params.custom: [chuỗi tự thêm]; params.scrub: xoá metadata tác giả/công ty."""
+    """params.entries: [{value, kind}] (bỏ trống = tự chọn theo gợi ý mặc định); params.custom: [dòng tự thêm, tuỳ chọn tiền tố 'ORG: '];
+    params.dictionary: tên từ điển luôn áp dụng; params.scrub: xoá metadata tác giả/công ty. Khớp không phân biệt hoa thường/dấu/khoảng trắng."""
     entries = [(e["value"], e["kind"]) for e in p["entries"]] if "entries" in p else None
     if entries is None:
         entries = [(c.value, c.kind) for c in an.detect([t for f in files for t in an.read_text(f)]) if c.checked]
-    entries += [(v, "CUSTOM") for v in p.get("custom", []) if v.strip()]
+    entries += [parse_term(v) for v in p.get("custom", []) if v.strip()]
+    if p.get("dictionary"):
+        entries += dictionary_terms(p["dictionary"])
     if not entries:
         raise ValueError("Không có gì để mã hoá (chưa chọn mục nào)")
-    kinds = {v: k for v, k in entries}
-    mapping = an.assign_tokens(entries)
+    mapper = an.Mapper(entries)
     outs = []
     for f in steps(files):
         out = out_path(f, "anon")
-        counts = an.count_hits(f, mapping)
-        an.transform(f, out, mapping, scrub=p.get("scrub", True))
-        an.write_mapping(_mapping_path(out), mapping, kinds, counts, an.leak_report(out, mapping), f.name)
+        mapper.hits.clear()
+        an.transform(f, out, mapper.find, scrub=p.get("scrub", True))
+        an.write_mapping(_mapping_path(out), mapper.rows(), an.leak_report(out, mapper), f.name)
         outs += [out, _mapping_path(out)]
     return outs
 
@@ -67,7 +83,7 @@ def restore(files, p):
             raise ValueError(f"{f.name}: không thấy bảng mapping ({m.name})")
         mapping = an.read_mapping(m)
         out = out_path(f, "restored")
-        if an.transform(f, out, mapping, restore=True) == 0:
+        if an.transform(f, out, an.restore_finder(mapping), restore=True) == 0:
             out.unlink(missing_ok=True)
             raise ValueError(f"{f.name}: không có mã nào khớp bảng {m.name} (nhầm file mapping?)")
         outs.append(out)

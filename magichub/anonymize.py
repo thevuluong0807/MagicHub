@@ -3,6 +3,7 @@ Bảng mapping (xlsx) giữ giá trị gốc để Restore. Không import Qt. Ch
 from __future__ import annotations
 
 import re
+import unicodedata
 import zipfile
 from collections import Counter
 from dataclasses import dataclass
@@ -116,7 +117,7 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
             add(m.group(0), kind, True)
     for m in RX_ORG.finditer(text):
         add(m.group(0), "ORG", True)
-        core = re.sub(rf"^(?:{ORG_KW})\s+|\s+(?:TNHH|CP|MTV)\b|\s+\d+$", "", m.group(0)).strip()  # dạng gọi tắt: "Tập đoàn Viettel" -> "Viettel"
+        core = re.sub(rf"^(?:{ORG_KW})\s+(?:(?:TNHH|CP|MTV)\s+)*|\s+(?:TNHH|CP|MTV)\b|\s+\d+$", "", m.group(0)).strip()  # dạng gọi tắt: "Tập đoàn Viettel" -> "Viettel"
         if core != m.group(0) and len(core) >= 3 and core[0].isupper():
             add(core, "ORG", True)
     for m in RX_TITLED.finditer(text):
@@ -144,29 +145,39 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
                     add(phrase, "TERM", False)  # chốt `checked` theo số lần ở dưới
             i = j + 1
 
-    counts = Counter({v: len(re.findall(rf"(?<!\w){re.escape(v)}(?!\w)", text)) for v in found})
+    ftext = fold_map(text)[0]  # đếm không phân biệt hoa thường/dấu để gộp "Viettel", "VIETTEL", "viettel"
+
+    def n_of(v):
+        rx = _fold_rx([fold_key(v)]) if fold_key(v) else None
+        return len(rx.findall(ftext)) if rx else 0
+
     # viết tắt in hoa lặp lại (tên đơn vị/dự án viết tắt): chỉ lấy khi ≥ 3 lần
+    keys = {fold_key(v) for v in found}
     for m in RX_ACRONYM.finditer(text):
         a = m.group(0)
-        if a not in found and a not in ACRONYM_SKIP:
-            n = len(re.findall(rf"(?<!\w){re.escape(a)}(?!\w)", text))
-            if n >= 3:
-                found[a] = ("TERM", False)
-                counts[a] = n
-    out = []
+        if a not in ACRONYM_SKIP and fold_key(a) not in keys and n_of(a) >= 3:
+            found[a] = ("TERM", False)
+            keys.add(fold_key(a))
+    groups: dict[str, list] = {}
     for v, (kind, checked) in found.items():
-        n = counts[v]
+        groups.setdefault(fold_key(v), []).append((v, kind, checked))
+    order = {k: i for i, k in enumerate(["PROJECT", "ORG", "PERSON", "EMAIL", "PHONE", "ID", "URL", "IP", "TERM"])}
+    out = []
+    for key, items in groups.items():
+        rep = max(items, key=lambda it: text.count(it[0]))[0]  # dạng hay gặp nhất làm giá trị chuẩn
+        kind = min((it[1] for it in items), key=lambda k: order.get(k, 99))
+        checked = any(it[2] for it in items)
+        n = n_of(rep)
         if n == 0:
             continue
         if kind == "TERM":
             if n < 2:
                 continue
-            checked = n >= 3 and " " in v
-        out.append(Candidate(v, kind, n, checked))
+            checked = checked or (n >= 3 and " " in rep)
+        out.append(Candidate(rep, kind, n, checked))
     # bỏ cụm con của một cụm đã dò cùng số lần (vd "Chí Minh" trong "Hồ Chí Minh")
-    vals = [c.value for c in out]
-    out = [c for c in out if not any(c.value != o and c.value in o and counts[o] >= c.count for o in vals if c.kind == "TERM")]
-    order = {k: i for i, k in enumerate(["PROJECT", "ORG", "PERSON", "EMAIL", "PHONE", "ID", "URL", "IP", "TERM"])}
+    out = [c for c in out if not any(fold_key(c.value) != fold_key(o.value) and fold_key(c.value) in fold_key(o.value) and o.count >= c.count
+                                     for o in out if c.kind == "TERM")]
     return sorted(out, key=lambda c: (order.get(c.kind, 99), -c.count, c.value))
 
 
@@ -184,29 +195,96 @@ def assign_tokens(entries: list[tuple[str, str]]) -> dict[str, str]:
     return out
 
 
-def _value_rx(values):
+_DASHES = "\u2010\u2011\u2012\u2013\u2014\u2212"
+_SPACES = "\u00a0\u2007\u202f\t"
+
+
+def _fold_char(c: str) -> str:
+    if c in _SPACES:
+        return " "
+    if c in _DASHES:
+        return "-"
+    d = "".join(x for x in unicodedata.normalize("NFD", c) if not unicodedata.combining(x))
+    return d.replace("đ", "d").replace("Đ", "d").lower()
+
+
+def fold_map(s: str) -> tuple[str, list[int]]:
+    """Chuỗi đã gấp (không dấu, không phân biệt hoa thường, nbsp/gạch nối lạ -> thường) + chỉ số gốc của từng ký tự gấp."""
+    out, origin = [], []
+    for i, c in enumerate(s):
+        for ch in _fold_char(c):
+            out.append(ch)
+            origin.append(i)
+    return "".join(out), origin
+
+
+def fold_key(v: str) -> str:
+    return " ".join(fold_map(v)[0].split())
+
+
+def _fold_rx(keys):
     parts = []
-    for v in sorted(values, key=len, reverse=True):  # dài trước để "Tập đoàn Viettel" thắng "Viettel"
-        a = rf"(?<!\w)" if re.match(r"\w", v[0]) else ""
-        b = r"(?!\w)" if re.match(r"\w", v[-1]) else ""
-        parts.append(f"{a}{re.escape(v)}{b}")
+    for k in sorted(keys, key=len, reverse=True):  # dài trước để "Tập đoàn Viettel" thắng "Viettel"
+        a = r"(?<!\w)" if re.match(r"\w", k[0]) else ""
+        b = r"(?!\w)" if re.match(r"\w", k[-1]) else ""
+        parts.append(a + r"\s+".join(re.escape(w) for w in k.split(" ")) + b)
     return re.compile("|".join(parts)) if parts else None
+
+
+class Mapper:
+    """Mã hoá: khớp KHÔNG phân biệt hoa thường/dấu/khoảng trắng/gạch nối. Mỗi dạng chữ khác dạng chuẩn (VIETTEL, viettel, "Viet tel"…)
+    nhận mã biến thể [ORG_1v1] để Restore trả đúng nguyên văn từng chỗ."""
+
+    def __init__(self, entries: list[tuple[str, str]]):
+        self.base = assign_tokens(entries)  # giá trị chuẩn -> mã
+        self.kinds = {v: k for v, k in entries if v in self.base}
+        self.by_key = {fold_key(v): v for v in self.base}
+        self.rx = _fold_rx(list(self.by_key))
+        self.table = dict(self.base)  # dạng chữ thực tế -> mã (gồm biến thể)
+        self.variant_of: dict[str, str] = {}  # biến thể -> giá trị chuẩn
+        self.n: Counter = Counter()
+        self.hits: Counter = Counter()
+
+    def find(self, text: str, create: bool = True, count: bool = True):
+        if not self.rx:
+            return []
+        folded, origin = fold_map(text)
+        out = []
+        for m in self.rx.finditer(folded):
+            if m.end() <= m.start():
+                continue
+            s, e = origin[m.start()], origin[m.end() - 1] + 1
+            surface = text[s:e]
+            canon = self.by_key[" ".join(m.group(0).split())]
+            tok = self.table.get(surface)
+            if tok is None:
+                if not create:
+                    tok = self.base[canon]
+                else:
+                    base = self.base[canon]
+                    self.n[base] += 1
+                    tok = f"{base[:-1]}v{self.n[base]}]"
+                    self.table[surface], self.variant_of[surface] = tok, canon
+            if count:
+                self.hits[surface] += 1
+            out.append((s, e, tok))
+        return out
+
+    def rows(self):
+        """[(mã, giá trị gốc, loại, số lần)] gồm cả biến thể."""
+        return [(tok, v, self.kinds.get(self.variant_of.get(v, v), "TERM"), self.hits.get(v, 0)) for v, tok in self.table.items()]
+
+
+def restore_finder(mapping: dict[str, str]):
+    rev = {t.strip("[]").upper(): v for v, t in mapping.items()}
+    rx = _token_rx(list(mapping.values()))
+    return lambda s: [(m.start(), m.end(), rev[m.group(1).upper()]) for m in rx.finditer(s)] if rx else []
 
 
 def _token_rx(tokens):
     """Khớp token có hoặc không có ngoặc vuông (AI hay bỏ ngoặc), không phân biệt hoa thường."""
     parts = sorted((re.escape(t.strip("[]")) for t in tokens), key=len, reverse=True)
     return re.compile(r"\[?(?<![\w])(" + "|".join(parts) + r")(?!\w)\]?", re.I) if parts else None
-
-
-def _replacer(mapping: dict[str, str], restore: bool):
-    """-> hàm(text) -> [(start, end, thay)]."""
-    if restore:
-        rev = {t.strip("[]").upper(): v for v, t in mapping.items()}
-        rx = _token_rx(list(mapping.values()))
-        return lambda s: [(m.start(), m.end(), rev[m.group(1).upper()]) for m in rx.finditer(s)] if rx else []
-    rx = _value_rx(list(mapping))
-    return lambda s: [(m.start(), m.end(), mapping[m.group(0)]) for m in rx.finditer(s)] if rx else []
 
 
 def _rewrite(ts, find) -> int:
@@ -243,10 +321,9 @@ def _scrub_props(name: str, data: bytes) -> bytes:
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
 
 
-def transform(src: Path, out: Path, mapping: dict[str, str], restore: bool = False, scrub: bool = False) -> int:
-    """Áp mapping (hoặc đảo ngược) lên src -> out; trả số lần thay."""
+def transform(src: Path, out: Path, find, scrub: bool = False, restore: bool = False) -> int:
+    """Áp `find(text) -> [(start, end, thay)]` (Mapper.find hoặc restore_finder) lên src -> out; trả số lần thay."""
     src, out = Path(src), Path(out)
-    find = _replacer(mapping, restore)
     n = 0
     if src.suffix.lower().lstrip(".") in TEXT:
         lines = src.read_text("utf-8", errors="replace").split("\n")
@@ -279,7 +356,7 @@ def transform(src: Path, out: Path, mapping: dict[str, str], restore: bool = Fal
 
 
 # ---------- Bảng mapping (xlsx) ----------
-def write_mapping(path: Path, mapping: dict[str, str], kinds: dict[str, str], counts: dict[str, int], leaks: list[str], source: str):
+def write_mapping(path: Path, rows: list[tuple], leaks: list[str], source: str):
     import openpyxl
     from openpyxl.styles import Font
 
@@ -289,12 +366,13 @@ def write_mapping(path: Path, mapping: dict[str, str], kinds: dict[str, str], co
     ws.append(["Mã", "Giá trị gốc", "Loại", "Số lần thay"])
     for c in ws[1]:
         c.font = Font(bold=True)
-    for value, token in mapping.items():
-        ws.append([token, value, KIND_LABEL.get(kinds.get(value, "TERM"), ""), counts.get(value, 0)])
+    for tok, value, kind, n in rows:
+        ws.append([tok, value, KIND_LABEL.get(kind, ""), n])
     ws.column_dimensions["A"].width, ws.column_dimensions["B"].width = 18, 48
     info = wb.create_sheet("Lưu ý")
     for line in (f"Nguồn: {source}", "File này chứa DỮ LIỆU GỐC. Giữ riêng, KHÔNG gửi kèm văn bản đã mã hoá.",
-                 "Restore: chọn file đã mã hoá (hoặc bản AI trả về), MagicHub đọc sheet Mapping để trả lại giá trị gốc.", "",
+                 "Restore: chọn file đã mã hoá (hoặc bản AI trả về), MagicHub đọc sheet Mapping để trả lại giá trị gốc.",
+                 "Mã có hậu tố v1, v2… là cùng một thực thể nhưng viết khác (hoa/thường, dấu, khoảng trắng); Restore trả đúng nguyên văn từng chỗ.", "",
                  "Kiểm tra sau khi mã hoá (mục có thể còn lộ thông tin, cần xem tay):", *(leaks or ["Không phát hiện giá trị gốc còn sót trong chữ của file."])):
         info.append([line])
     info.column_dimensions["A"].width = 110
@@ -315,16 +393,9 @@ def read_mapping(path: Path) -> dict[str, str]:
     return out
 
 
-def count_hits(path: Path, mapping: dict[str, str]) -> dict[str, int]:
-    """Số lần mỗi giá trị xuất hiện trong chữ của file (cho cột 'Số lần thay')."""
-    text = "\n".join(read_text(path))
-    return {v: len(re.findall(rf"(?<!\w){re.escape(v)}(?!\w)" if re.match(r"\w", v[0]) else re.escape(v), text)) for v in mapping}
-
-
-def leak_report(out: Path, mapping: dict[str, str]) -> list[str]:
+def leak_report(out: Path, mapper: Mapper) -> list[str]:
     """Giá trị gốc còn xuất hiện ở đâu trong file kết quả (kể cả phần không xử lý như tên sheet, biểu đồ) + số ảnh chưa kiểm."""
     out = Path(out)
-    rx = _value_rx(list(mapping))
     res = []
     if out.suffix.lower().lstrip(".") in TEXT:
         return res
@@ -333,9 +404,9 @@ def leak_report(out: Path, mapping: dict[str, str]) -> list[str]:
         for name in zf.namelist():
             if "/media/" in name:
                 media += 1
-            if name.endswith((".xml", ".rels")) and rx:
-                text = zf.read(name).decode("utf-8", "replace")
-                hits = sorted({m.group(0) for m in rx.finditer(re.sub(r"<[^>]+>", "", text))})
+            if name.endswith((".xml", ".rels")):
+                text = re.sub(r"<[^>]+>", "", zf.read(name).decode("utf-8", "replace"))
+                hits = sorted({text[a:b] for a, b, _ in mapper.find(text, create=False, count=False)})
                 if hits:
                     res.append(f"{name}: còn {', '.join(hits[:5])}" + (" …" if len(hits) > 5 else ""))
         if media:

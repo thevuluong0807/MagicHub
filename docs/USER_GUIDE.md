@@ -75,6 +75,9 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 ## Mã hoá văn bản (Anonymize / Restore)
 - **Bảng mapping chứa dữ liệu gốc**: giữ riêng, không gửi kèm văn bản đã mã hoá. Sheet "Lưu ý" trong file liệt kê chỗ còn sót.
 - Tự dò: email, URL, IP, SĐT, số CCCD/CMND, mã dạng `BVL-2026-01`, tên đơn vị (Công ty/Tập đoàn/Viện… + tên), tên người (họ phổ biến hoặc sau Ông/Bà/TS…), cụm viết hoa lặp lại, viết tắt in hoa lặp ≥ 3 lần. Có thể sót hoặc nhầm: luôn xem lại bảng gợi ý.
-- Dạng gọi tắt ("Viettel" từ "Tập đoàn Viettel") được dò thành mục riêng, mã riêng.
+- Dạng gọi tắt ("Viettel" từ "Tập đoàn Viettel") được dò thành mục riêng, mã riêng (không gộp mã, để Restore trả đúng từng dạng).
+- **Khớp không phân biệt hoa thường, dấu, khoảng trắng** (kể cả khoảng trắng đặc biệt, gạch nối lạ). "VIETTEL", "viettel", "Tap doan Viettel" đều bị mã hoá. Mỗi dạng viết khác dạng chuẩn có mã biến thể (`[ORG_1v1]`, `[ORG_1v2]`…) nên Restore trả đúng nguyên văn từng chỗ.
+- **Từ điển dự án**: chọn/gõ tên từ điển trong hộp thoại, mỗi dòng một cụm (tuỳ chọn tiền tố `ORG: `, `PERSON: `, `PROJECT: `…). Cụm trong từ điển luôn được mã hoá dù app không dò ra. Tick "Lưu các mục đã tick vào từ điển" để lần sau tự áp dụng. Lưu trong `config.json` (`anonymize_dicts`).
+- Mã hoá và giải mã chạy hoàn toàn trên máy bạn bằng bảng tra cứu, không dùng AI và không cần mạng.
 - Chưa xử lý: ảnh/biểu đồ/tên sheet trong file (cảnh báo ở sheet "Lưu ý"), PDF (convert PDF→Word trước), .doc/.xls/.ppt cũ.
 - Che tên không phải ẩn danh tuyệt đối: ngữ cảnh ("giám đốc công ty ở Quận 1…") vẫn có thể lộ.
