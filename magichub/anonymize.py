@@ -56,12 +56,12 @@ RX_URL = re.compile(r"\b(?:https?://|www\.)[^\s<>\"')\]]+", re.I)
 RX_IP = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 RX_PHONE = re.compile(r"(?<![\w.])(?:\+84|0084|0)[ .-]?\d(?:[ .-]?\d){8,9}(?!\w)(?!\.\d)")
 RX_ID = re.compile(r"(?<![\w.])\d{9}(?:\d{3})?(?!\w)(?!\.\d)")  # CCCD 12 số / CMND 9 số
-RX_CODE = re.compile(rf"(?<![\w-])(?:\d+\.)?[{UP}]{{2,}}\d*(?:[-_/.][{UP}0-9]+)+(?![\w-])")  # BVL-2026-01, 11.BVL-HS, VT/2026/05
+RX_CODE = re.compile(rf"(?<![\w-])(?:\d+\.)?[{UP}][{UP}\d]+(?:[-_/.][{UP}\d]+)+(?![\w-])")  # BVL-2026-01, BV3C-01, 11.BVL-HS, VT/2026/05
 SP = r"[ \t\u00a0]+"  # cùng một dòng: tên không vắt qua đoạn/ô bảng khác
 RX_ORG = re.compile(rf"(?<!\w)(?=[{UP}])(?i:{ORG_KW})(?:{SP}(?:(?i:cổ{SP}phần)|(?i:{ORG_WORDS})(?![\w-])|(?i:và|của)(?={SP}(?:(?i:{ORG_WORDS})|[{UP}]\w*{SP}(?i:{ORG_WORDS}))(?![\w-]))|[{UP}][\w&'’-]*|&|[-–]|TNHH|CP|MTV))+(?:{SP}\d+)?")
 RX_TITLED = re.compile(rf"\b{TITLES}{SP}((?:[{UP}][^\W\d_]*)(?:{SP}[{UP}][^\W\d_]*){{0,3}})")
 RX_WORD = re.compile(r"[^\W_]+(?:[-'’][^\W_]+)*")
-RX_ACRONYM = re.compile(rf"(?<![\w-])[{UP}]{{3,8}}(?![\w-])")
+RX_ACRONYM = re.compile(rf"(?<![\w-])[{UP}][{UP}\d]{{2,9}}(?![\w-])")  # BVL, MHTH, BV3C, B2B (có thể kèm số)
 
 
 # độ dài tối thiểu (ký tự) để một giá trị đủ ngữ nghĩa theo loại: mã/viết tắt ngắn như "BVL" vẫn hợp lệ, cụm chữ thường phải dài hơn
@@ -236,11 +236,11 @@ def detect(paragraphs: list[str]) -> list[Candidate]:
         rx = _fold_rx([fold_key(v)]) if fold_key(v) else None
         return len(rx.findall(ftext)) if rx else 0
 
-    # viết tắt in hoa lặp lại (tên đơn vị/dự án viết tắt): chỉ lấy khi ≥ 3 lần
+    # viết tắt in hoa lặp lại (tên đơn vị/dự án viết tắt, có thể kèm số như BV3C): chỉ lấy khi ≥ 2 lần
     keys = {fold_key(v) for v in found}
     for m in RX_ACRONYM.finditer(text):
         a = m.group(0)
-        if a not in ACRONYM_SKIP and a.lower() not in FORM_WORDS and fold_key(a) not in keys and n_of(a) >= 3 and not lower_seen(a) and not is_vn_syllable(a):
+        if a not in ACRONYM_SKIP and a.lower() not in FORM_WORDS and fold_key(a) not in keys and sum(ch.isalpha() for ch in a) >= 2 and n_of(a) >= 2 and not lower_seen(a) and not is_vn_syllable(a):
             found[a] = ("PROJECT", True)  # viết tắt in hoa lặp lại (BVL, MHTH…): mã dự án/đơn vị viết tắt
             keys.add(fold_key(a))
     groups: dict[str, list] = {}

@@ -282,6 +282,10 @@ Số Serial: 1; Sđ"""
     assert "192.168.1.5" in g and "10.0.0.7" in g and "5.8.9.3" not in g and "1.1.1.4" not in g
     assert "Tổng Công ty Công nghiệp Công nghệ cao Viettel" in g and "Tập đoàn Công nghiệp – Viễn thông Quân đội" in g
     assert not any("\n" in v or "Trường" in v for v in g)
+    # mã ngắn/có số: chỉ cần lặp 2 lần là đủ nghĩa; mã kèm gạch có số ở giữa
+    sm = {c.value: c for c in an.detect(["Dự án BVL và BV3C. Hệ thống BVL chạy BV3C-01, BV3C. Mã A1, A1; 4G 4G"])}
+    assert sm["BVL"].kind == sm["BV3C"].kind == "PROJECT" and sm["BVL"].checked and sm["BV3C"].checked and "BV3C-01" in sm
+    assert "A1" not in sm and "4G" not in sm  # cần ≥ 2 chữ cái và bắt đầu bằng chữ
     assert an.is_vn_syllable("CHÍ") and an.is_vn_syllable("quân") and not an.is_vn_syllable("BVL") and not an.is_vn_syllable("UAV")
 
 

@@ -22,6 +22,7 @@
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
 
 ## 2026-10-23 — chưa phát hành (sau v0.9.5): chặn lặp lại lỗi đóng gói
+- Dò mã viết tắt: BVL/BV3C không được dò. Nguyên nhân: viết tắt in hoa phải lặp ≥ 3 lần (BVL chỉ xuất hiện 2 lần thì bị bỏ) và `RX_ACRONYM`/`RX_CODE` không nhận chữ+số (BV3C, BV3C-01). Nay ≥ 2 lần, nhận chữ hoa kèm số (cần ≥ 2 chữ cái, bắt đầu bằng chữ: B2B, CTT1 nhận; A1, 4G không). Thử trên Dau B_11…docx: 71 → 80 ứng viên (thêm mã như CTT1, GM1, RX1).
 - `requirements.txt`: mọi phụ thuộc trực tiếp có cận trên theo major (nâng major phải thử trước).
 - `entry.py`: chế độ smoke (`MAGICHUB_SMOKE=<file>`): import mọi module, chạy thật `organize.compress` + `convert.pdf.docx` trên PDF mẫu, ghi `ok …` hoặc traceback ra file (app windowed không có console).
 - `release.yml`: bước "Smoke test bản đóng gói" (Windows + Linux; macOS chưa) chạy exe sau PyInstaller; lỗi thì job `publish` không chạy nên không có Release hỏng. Đã thử ở chế độ source (ok và ca lỗi); chưa chạy trên CI.
