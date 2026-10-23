@@ -41,7 +41,12 @@ jobs:
         run: |
           EXE=dist/MagicHub/MagicHub; [ -f "$EXE.exe" ] && EXE="$EXE.exe"
           rm -f smoke.txt
-          MAGICHUB_SMOKE="$PWD/smoke.txt" QT_QPA_PLATFORM=offscreen timeout 300 "$EXE" || true
+          RUN=""
+          if [ "${{ matrix.name }}" = linux ]; then  # pynput cần X server; runner không có
+            sudo apt-get install -y --no-install-recommends xvfb >/dev/null
+            RUN="xvfb-run -a"
+          fi
+          MAGICHUB_SMOKE="$PWD/smoke.txt" QT_QPA_PLATFORM=offscreen timeout 300 $RUN "$EXE" || true
           cat smoke.txt  # không có file = app chết trước khi chạy được (cũng coi là lỗi)
           grep -q '^ok' smoke.txt
       - name: Windows installer
