@@ -203,6 +203,7 @@ def test_anonymize(td):
     d.add_table(1, 1).cell(0, 0).text = "Viettel: Tập đoàn Viettel"
     d.sections[0].header.paragraphs[0].text = "BVL-2026-01"
     d.core_properties.author = "Nguyễn Văn An"
+    d.core_properties.subject = "Hồ sơ BVL-2026-01 của Viettel"  # trường SUBJECT ở bìa đọc lại từ đây
     src = td / "hd.docx"
     d.save(src)
     entries = [{"value": v, "kind": c.kind} for v, c in cands.items() if c.checked]
@@ -212,6 +213,7 @@ def test_anonymize(td):
         assert secret not in got, secret
     assert "[PERSON_1]" in got and "[ORG_" in got and "[PROJECT_1]" in got
     assert docx.Document(str(anon)).core_properties.author == ""  # metadata tác giả bị xoá
+    assert "BVL-2026-01" not in docx.Document(str(anon)).core_properties.subject and "Viettel" not in docx.Document(str(anon)).core_properties.subject
     assert openpyxl.load_workbook(mp)["Mapping"]["A2"].value.startswith("[")
     assert any(r.bold for r in docx.Document(str(anon)).paragraphs[0].runs)  # định dạng đậm của run vẫn còn
     # Restore: tự tìm mapping cạnh file; kết quả giống hệt bản gốc theo từng đoạn

@@ -27,6 +27,7 @@ PARTS = [
 OOXML = {"docx", "xlsx", "pptx"}
 TEXT = {"txt", "md"}
 SUPPORTED = OOXML | TEXT
+META_PARTS = ("docProps/core.xml", "docProps/app.xml", "docProps/custom.xml")  # tiêu đề/chủ đề/từ khoá… cũng chứa tên; trường TITLE/SUBJECT ở bìa đọc lại từ đây khi cập nhật
 PROPS = {"docProps/core.xml": ("creator", "lastModifiedBy"), "docProps/app.xml": ("Company", "Manager")}
 
 PREFIX = {"PERSON": "PERSON", "ORG": "ORG", "PLACE": "PLACE", "TECH": "TECH", "IDENT": "IDENT", "SAFE": "SAFE", "PROJECT": "PROJECT", "EMAIL": "EMAIL", "PHONE": "PHONE", "URL": "URL", "ID": "ID",
@@ -571,8 +572,16 @@ def transform(src: Path, out: Path, find, scrub: bool = False, restore: bool = F
                         el.set(f"{{{W}}}author", "Author")
                         el.set(f"{{{W}}}initials", "")
                 data = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
-            elif scrub and info.filename in PROPS:
-                data = _scrub_props(info.filename, data)
+            elif info.filename in META_PARTS:
+                root = etree.fromstring(data)
+                for el in root.iter():
+                    if isinstance(el.tag, str) and el.text and el.text.strip():
+                        hits = find(el.text)
+                        n += len(hits)
+                        el.text = apply_spans(el.text, hits)
+                data = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
+                if scrub and info.filename in PROPS:
+                    data = _scrub_props(info.filename, data)
             zout.writestr(info, data)
     return n
 
