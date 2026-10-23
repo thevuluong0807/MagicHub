@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.9.3**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.9.4**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -21,7 +21,7 @@
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
 
-## 2026-10-23 — chưa phát hành (sau v0.9.3)
+## 2026-10-23 — v0.9.4
 - Hộp thoại quản lý từ điển mã hoá riêng (`ask_dictionaries`: danh sách từ điển, bảng loại+giá trị, nhập/xuất .txt, đổi tên/xoá); menu khay "Từ điển mã hoá…"; hộp Mã hoá có checkbox "Dùng từ điển mã hoá" + chọn từ điển + "Quản lý từ điển…" (nhớ trạng thái ở `anonymize_use_dict`). Test `test_dictionary_dialogs`.
 - Tối ưu dò mã hoá (thử trên Dau B_11…docx: 168 → 69 ứng viên, hết nhiễu): `common()` loại nhãn/tiêu đề thông dụng ("Ngày soạn", "Phạm vi", "Hệ Thống": từ nhãn `FORM_WORDS` hoặc dạng chữ thường có trong văn bản); `is_vn_syllable` loại tiêu đề IN HOA là chữ Việt (HÌNH, CAO, BAY) khỏi viết tắt, giữ BVL/MHTH/UAV/GNSS làm mã dự án (chọn sẵn); IP phải hợp lệ (bỏ số mục 5.8.9.3); khớp không vắt qua dòng/ô bảng (`SP`); tên tổ chức dài có chữ thường (`ORG_WORDS`, `clean_org` cắt đuôi/từ khoá thứ hai); loại "Đơn vị" đổi thành "Tổ chức"; địa danh tách riêng (`PLACE`, không chọn sẵn); `MIN_LEN` độ dài tối thiểu theo loại; cụm viết hoa lặp (TERM) không chọn sẵn. Test `test_anonymize_detect_quality`.
 
