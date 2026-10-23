@@ -21,6 +21,9 @@
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
 
+## 2026-10-23 — chưa phát hành (sau v0.9.2)
+- Mã hoá văn bản (`anonymize.py`, `actions/anon.py`, `ask_anonymize`/`ask_mapping` trong dialogs): dò (regex + heuristic tiếng Việt, không cần model), thay giữ định dạng run trong docx/xlsx/pptx (+header/footer/ghi chú/bình luận/sharedStrings), txt/md. Mapping xlsx cạnh file; Restore tự tìm mapping, chịu AI bỏ ngoặc/đổi hoa thường; kiểm tra sót (mọi part XML + số ảnh nhúng) ghi vào sheet "Lưu ý". Test `test_anonymize`. Chưa: PDF, ảnh/biểu đồ, mật khẩu cho mapping, alias dùng chung mã, từ điển theo dự án, chế độ dán text từ clipboard.
+
 ## 2026-10-23 — v0.9.2
 - Compress mở rộng: thêm Word/Excel/PowerPoint (docx/xlsx/pptx, nén lại ảnh trong `*/media/`, giữ tên + định dạng ảnh), mức "Cực mạnh", ô "Dung lượng tối đa (MB)" (tự thử mức mạnh dần tới khi đạt; không đạt → lỗi, xoá file dở). PNG: chỉ giảm màu ở mức Mạnh trở lên. Doc/xls/ppt cũ (.doc/.xls/.ppt) không hỗ trợ. Test `test_compress_office_target`.
 - Tự cập nhật khi chạy từ source (run.bat / clone git): trước đây `mode()` = manual nên chỉ mở trang GitHub. Nay mode `git`: `git pull --ff-only` + `pip install -r requirements.txt` rồi tự khởi động lại (chờ 2 s để nhả ổ khoá). Cây làm việc có sửa đổi xung đột thì báo lỗi, không ghi đè. Bản đóng gói (Setup.exe/AppImage) giữ nguyên. Test `test_updater_git`.

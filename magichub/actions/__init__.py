@@ -1,9 +1,9 @@
-from . import convert, edit, extra, organize  # noqa: F401  (import để đăng ký action)
+from . import anon, convert, edit, extra, organize  # noqa: F401  (import để đăng ký action)
 from .base import GROUPS, REGISTRY
 
 
 # thứ tự hiển thị mặc định (id không liệt kê giữ thứ tự đăng ký, xếp sau)
-DEFAULT_ORDER = ["edit.markup", "edit.highlight", "edit.redact", "edit.crop", "edit.resize", "edit.headfoot", "edit.protect", "edit.unlock", "edit.flatten", "edit.strip",
+DEFAULT_ORDER = ["edit.markup", "edit.highlight", "edit.redact", "edit.crop", "edit.resize", "edit.headfoot", "edit.protect", "edit.unlock", "edit.flatten", "edit.strip", "edit.anonymize", "edit.restore",
                  "organize.merge", "organize.split", "organize.compress", "organize.reorder", "organize.pages",
                  "organize.rotate_cw", "organize.rotate_ccw", "organize.images", "organize.compare", "organize.zip"]
 

@@ -30,6 +30,8 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 | Pages | Lấy các trang chọn ra PDF mới | Khoảng trang `1-3,5,7-` |
 | Images | Lấy ảnh nhúng trong PDF vào thư mục | — |
 | Compress | Nén PDF, ảnh, Word/Excel/PowerPoint (docx/xlsx/pptx: nén ảnh bên trong); thông báo cho thấy dung lượng trước → sau | Mức nén (Nhẹ/Vừa/Mạnh/Cực mạnh) + Dung lượng tối đa (MB). Đặt ví dụ 25 thì tự tăng mức nén cho tới khi ≤ 25 MB; nén mạnh nhất vẫn quá thì báo lỗi, không tạo file |
+| Mã hoá | Ẩn danh hoá văn bản trước khi gửi AI/bên ngoài: thay tên người, đơn vị, mã dự án, email, SĐT… bằng mã `[PERSON_1]`, `[ORG_2]`… (docx, xlsx, pptx, txt, md). Ra 2 file: `x_anon.docx` + `x_anon_mapping.xlsx` | Bảng gợi ý tự dò (tick/bỏ, xem số lần), ô thêm tay (nhớ lại lần sau), xoá metadata tác giả/công ty |
+| Giải mã | Trả lại giá trị gốc cho file đã mã hoá hoặc bản AI trả về (chịu được AI bỏ ngoặc `[]`/đổi hoa thường) | Tự tìm `x_anon_mapping.xlsx` cạnh file; không có thì hỏi chọn file mapping |
 | OCR | PDF scan → PDF chọn/copy được chữ (cần Tesseract) | — |
 | Protect | Đặt mật khẩu mở PDF | Mật khẩu 2 lần |
 | Redact | Che đen + xoá thật nội dung khớp từ khoá và/hoặc vùng tự kéo; có bước xem trước | Từ khoá (tuỳ chọn), rồi xem trước: khung cam = khớp, kéo chuột thêm vùng đen |
@@ -68,3 +70,11 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 | Lỗi Microsoft Office | Đóng hộp thoại đang mở trong Word/Excel/PowerPoint; hoặc đặt `engine` = `libreoffice` ở menu khay |
 | File lớn chạy lâu | Thẻ tiến trình góc dưới-phải hiện % và nút Huỷ |
 | PDF → DOCX/XLSX xấu | Giới hạn đã biết, xem CONSTRAINTS.md |
+
+
+## Mã hoá văn bản (Anonymize / Restore)
+- **Bảng mapping chứa dữ liệu gốc**: giữ riêng, không gửi kèm văn bản đã mã hoá. Sheet "Lưu ý" trong file liệt kê chỗ còn sót.
+- Tự dò: email, URL, IP, SĐT, số CCCD/CMND, mã dạng `BVL-2026-01`, tên đơn vị (Công ty/Tập đoàn/Viện… + tên), tên người (họ phổ biến hoặc sau Ông/Bà/TS…), cụm viết hoa lặp lại, viết tắt in hoa lặp ≥ 3 lần. Có thể sót hoặc nhầm: luôn xem lại bảng gợi ý.
+- Dạng gọi tắt ("Viettel" từ "Tập đoàn Viettel") được dò thành mục riêng, mã riêng.
+- Chưa xử lý: ảnh/biểu đồ/tên sheet trong file (cảnh báo ở sheet "Lưu ý"), PDF (convert PDF→Word trước), .doc/.xls/.ppt cũ.
+- Che tên không phải ẩn danh tuyệt đối: ngữ cảnh ("giám đốc công ty ở Quận 1…") vẫn có thể lộ.

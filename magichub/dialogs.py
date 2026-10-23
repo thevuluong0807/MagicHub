@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import (QComboBox, QDialog, QFrame, QDialogButtonBox, QFileDialog, QFormLayout, QHBoxLayout,
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QHeaderView, QTableWidget, QTableWidgetItem, QDialog, QFrame, QDialogButtonBox, QFileDialog, QFormLayout, QHBoxLayout,
                                QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton, QSpinBox,
                                QVBoxLayout, QWidget)
 
@@ -395,3 +395,63 @@ def ask_hotkey(mods: list[str], key: str) -> tuple[list[str], str] | None:
     lay.addWidget(bb)
     _front(dlg)
     return pending["v"] if dlg.exec() == QDialog.Accepted and "v" in pending else None
+
+
+def ask_anonymize(cands) -> dict | None:
+    """Bảng ứng viên (tick để mã hoá) + ô thêm tay (nhớ lại lần sau) + xoá metadata. Trả {entries, custom, scrub}."""
+    from . import config
+    from .anonymize import KIND_LABEL
+
+    cfg = config.load()
+    dlg = QDialog()
+    dlg.setWindowTitle("Mã hoá văn bản")
+    dlg.resize(680, 620)
+    lay = QVBoxLayout(dlg)
+    lay.setContentsMargins(24, 20, 24, 20)
+    header(lay, "Mã hoá văn bản", "Tick các mục cần thay bằng mã. Gợi ý tự dò có thể sót hoặc nhầm: hãy xem lại, nhất là tên người và cụm viết hoa.")
+    table = QTableWidget(len(cands), 4)
+    table.setHorizontalHeaderLabels(["Mã hoá", "Loại", "Giá trị", "Số lần"])
+    table.verticalHeader().setVisible(False)
+    table.setSelectionMode(QAbstractItemView.NoSelection)
+    table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+    for r, c in enumerate(cands):
+        chk = QTableWidgetItem()
+        chk.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+        chk.setCheckState(Qt.Checked if c.checked else Qt.Unchecked)
+        table.setItem(r, 0, chk)
+        for col, text in ((1, KIND_LABEL.get(c.kind, c.kind)), (2, c.value), (3, str(c.count))):
+            table.setItem(r, col, QTableWidgetItem(text))
+    h = table.horizontalHeader()
+    h.setSectionResizeMode(2, QHeaderView.Stretch)
+    for col in (0, 1, 3):
+        h.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+    lay.addWidget(table, 1)
+    row = QHBoxLayout()
+    for text, state in (("Chọn tất cả", Qt.Checked), ("Bỏ tất cả", Qt.Unchecked)):
+        b = QPushButton(text)
+        b.clicked.connect(lambda _=False, s=state: [table.item(r, 0).setCheckState(s) for r in range(table.rowCount())])
+        row.addWidget(b)
+    row.addStretch(1)
+    lay.addLayout(row)
+    lay.addWidget(QLabel("Thêm tay (mỗi dòng một cụm; nhớ cho lần sau):"))
+    extra = QPlainTextEdit("\n".join(cfg.get("anonymize_terms", [])))
+    extra.setFixedHeight(80)
+    lay.addWidget(extra)
+    scrub = QCheckBox("Xoá metadata tác giả/công ty của file")
+    scrub.setChecked(True)
+    lay.addWidget(scrub)
+    lay.addWidget(buttons(dlg, "Mã hoá"))
+    _front(dlg)
+    if dlg.exec() != QDialog.Accepted:
+        return None
+    custom = [t.strip() for t in extra.toPlainText().splitlines() if t.strip()]
+    cfg["anonymize_terms"] = custom
+    config.save(cfg)
+    entries = [{"value": c.value, "kind": c.kind} for r, c in enumerate(cands) if table.item(r, 0).checkState() == Qt.Checked]
+    return {"entries": entries, "custom": custom, "scrub": scrub.isChecked()}
+
+
+def ask_mapping() -> dict | None:
+    """Chọn file bảng mapping (.xlsx) khi không tự tìm thấy cạnh file."""
+    path = QFileDialog.getOpenFileName(None, "Chọn bảng mapping", "", "Bảng mapping (*.xlsx)")[0]
+    return {"mapping": path} if path else None

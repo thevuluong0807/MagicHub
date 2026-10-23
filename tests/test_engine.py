@@ -111,6 +111,78 @@ def test_compress_office_target(td):
         organize._shrink = real
 
 
+def test_anonymize(td):
+    """Dò + mã hoá + Restore vòng tròn trên docx/xlsx/pptx/txt: không còn giá trị gốc, khôi phục đúng từng đoạn, giữ định dạng."""
+    import docx, openpyxl, pptx
+    from magichub import anonymize as an
+    text = ("Ông Nguyễn Văn An là Giám đốc Công ty TNHH Sao Mai. Công ty TNHH Sao Mai ký hợp đồng BVL-2026-01 với Tập đoàn Viettel. "
+            "Liên hệ an.nguyen@saomai.vn hoặc 0912 345 678. Dự án BVL-2026-01 do Nguyễn Văn An phụ trách; Tập đoàn Viettel cử Trần Thị Bình.")
+    cands = {c.value: c for c in an.detect([text])}
+    for v, k in (("Nguyễn Văn An", "PERSON"), ("Trần Thị Bình", "PERSON"), ("BVL-2026-01", "PROJECT"), ("an.nguyen@saomai.vn", "EMAIL"),
+                 ("Công ty TNHH Sao Mai", "ORG"), ("Tập đoàn Viettel", "ORG")):
+        assert v in cands and cands[v].kind == k and cands[v].checked, (v, list(cands))
+    assert any(c.kind == "PHONE" for c in cands.values()) and cands["Nguyễn Văn An"].count == 2 and cands["BVL-2026-01"].count == 2
+
+    # docx: tên bị tách thành nhiều run, có định dạng đậm; thêm header, bảng
+    d = docx.Document()
+    para = d.add_paragraph()
+    for chunk in ("Giám đốc ", "Nguyễn ", "Văn"):
+        para.add_run(chunk)
+    para.runs[1].bold = True
+    para.add_run(" An ký, công ty Sao Mai.")
+    d.add_paragraph(text)
+    d.add_table(1, 1).cell(0, 0).text = "Viettel: Tập đoàn Viettel"
+    d.sections[0].header.paragraphs[0].text = "BVL-2026-01"
+    d.core_properties.author = "Nguyễn Văn An"
+    src = td / "hd.docx"
+    d.save(src)
+    entries = [{"value": v, "kind": c.kind} for v, c in cands.items() if c.checked]
+    (anon, mp) = run("edit.anonymize", [src], entries=entries, custom=["Sao Mai"])
+    got = "\n".join(an.read_text(anon))
+    for secret in ("Nguyễn Văn An", "Viettel", "BVL-2026-01", "saomai.vn", "Sao Mai"):
+        assert secret not in got, secret
+    assert "[PERSON_1]" in got and "[ORG_" in got and "[PROJECT_1]" in got
+    assert docx.Document(str(anon)).core_properties.author == ""  # metadata tác giả bị xoá
+    assert openpyxl.load_workbook(mp)["Mapping"]["A2"].value.startswith("[")
+    assert any(r.bold for r in docx.Document(str(anon)).paragraphs[0].runs)  # định dạng đậm của run vẫn còn
+    # Restore: tự tìm mapping cạnh file; kết quả giống hệt bản gốc theo từng đoạn
+    (back,) = run("edit.restore", [anon], mapping=str(mp), auto=True)
+    assert an.read_text(back) == an.read_text(src)
+    # AI bỏ ngoặc vuông / đổi hoa thường: vẫn khôi phục được
+    t = td / "ai.txt"
+    t.write_text("Theo PERSON_1 và [org_1], mã project_1 đã ký.", "utf-8")
+    (rt,) = run("edit.restore", [t], mapping=str(mp))
+    assert "Nguyễn Văn An" in rt.read_text("utf-8") and "[" not in rt.read_text("utf-8")
+    # bảng mapping sai -> lỗi rõ ràng, không để lại file
+    other = td / "other.txt"
+    other.write_text("không có mã nào", "utf-8")
+    try:
+        run("edit.restore", [other], mapping=str(mp))
+        raise AssertionError("phải báo lỗi")
+    except ValueError:
+        assert not list(td.glob("other_restored*"))
+
+    # xlsx / pptx / txt
+    wb = openpyxl.Workbook()
+    wb.active["A1"] = "Khách hàng: Tập đoàn Viettel"
+    wb.active["B2"] = "BVL-2026-01"
+    wb.save(td / "b.xlsx")
+    pr = pptx.Presentation()
+    sl = pr.slides.add_slide(pr.slide_layouts[5])
+    sl.shapes.title.text = "Dự án BVL-2026-01 của Viettel"
+    pr.save(td / "s.pptx")
+    (td / "n.md").write_text("# BVL-2026-01\nLiên hệ: Nguyễn Văn An\n", "utf-8")
+    ents = [{"value": "Viettel", "kind": "ORG"}, {"value": "BVL-2026-01", "kind": "PROJECT"}, {"value": "Nguyễn Văn An", "kind": "PERSON"}]
+    for name in ("b.xlsx", "s.pptx", "n.md"):
+        f = td / name
+        a, m = run("edit.anonymize", [f], entries=ents)
+        assert not any("Viettel" in x or "BVL-2026-01" in x for x in an.read_text(a)), name
+        (r,) = run("edit.restore", [a], mapping=str(m))
+        assert an.read_text(r) == an.read_text(f), name
+        assert by_id("edit.anonymize").accepts([f])
+    assert not by_id("edit.anonymize").accepts([make_pdf(td / "p.pdf")]) and not by_id("edit.anonymize").accepts([td / "old.doc"])
+
+
 def test_options(td):
     big = Image.effect_noise((1600, 1200), 80).convert("RGB")
     jpg = td / "n.jpg"
@@ -673,7 +745,7 @@ def test_hub_toast(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_compress_office_target, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_compress_office_target, test_anonymize, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)
