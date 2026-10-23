@@ -122,6 +122,17 @@ def test_anonymize_bad_zip(td):
         assert "old.docx" in str(e) and "Office cũ" in str(e)
 
 
+def test_detect_lowercase_path_and_military_org(td):
+    from magichub import anonymize as an
+    paras = ["Phần mềm BV3C", "Bảng bv3c.system", "BV3C hoạt động", "Báo cáo của Cục tác chiến điện tử.",
+             "Tổng Công ty Công nghiệp Công nghệ cao Viettel", "Phòng ngừa rủi ro. Ban hành quy định."]
+    got = {c.value: c for c in an.detect(paras)}
+    assert got["BV3C"].kind == "PROJECT" and got["BV3C"].checked  # dạng thường trong tên bảng không làm mất mã
+    assert got["Cục tác chiến điện tử"].kind == "ORG"
+    assert got["Viettel"].kind == "ORG"
+    assert "Phòng ngừa" not in got and "Ban hành" not in got
+
+
 def test_anonymize(td):
     """Dò + mã hoá + Restore vòng tròn trên docx/xlsx/pptx/txt: không còn giá trị gốc, khôi phục đúng từng đoạn, giữ định dạng."""
     import docx, openpyxl, pptx

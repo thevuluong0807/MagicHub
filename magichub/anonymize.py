@@ -39,6 +39,8 @@ SURNAMES = set("""Nguyễn Trần Lê Phạm Hoàng Huỳnh Phan Vũ Võ Đặng
 Thái Triệu Tăng Lại Kiều Chu Từ Văn Diệp Giang La Mạc Ông Kim""".split()) - {"Văn", "Ông", "Kim"}
 TITLES = r"(?:Ông|Bà|Anh|Chị|Cô|Chú|Bác|Thầy|Đ/c|Đồng chí|TS\.?|PGS\.?|GS\.?|ThS\.?|KS\.?|CN\.?|Mr\.?|Mrs\.?|Ms\.?|Dr\.?|Prof\.?)"
 ORG_WORDS = ("công nghiệp|công nghệ|cao|viễn thông|quân đội|thương mại|dịch vụ|sản xuất|xây dựng|đầu tư|phát triển|kỹ thuật|trách nhiệm hữu hạn|một thành viên|"
+             "tác chiến|điện tử|tham mưu|hậu cần|chính trị|quân sự|tình báo|trinh sát|phòng không|không quân|hải quân|pháo binh|công binh|tên lửa|cơ yếu|"
+             "tài chính|kế hoạch|nghiên cứu|hành chính|nhân sự|đối ngoại|khoa học công nghệ|"
              "nông nghiệp|nông thôn|giáo dục|đào tạo|y tế|vận tải|thông tin|truyền thông|điện lực|năng lượng|khoa học|quốc gia|quốc tế|việt nam")
 ORG_KW = ("Tổng công ty|Công ty|Tập đoàn|Ngân hàng|Học viện|Trường|Viện|Trung tâm|Ủy ban|Uỷ ban|Hiệp hội|Bộ|Sở|Cục|Vụ|Ban|Phòng|Hội|Đoàn|Quân đoàn|Sư đoàn|Trung đoàn|"
           "Bệnh viện|Đài|Báo|Nhà máy|Xí nghiệp|Chi nhánh|Văn phòng")
@@ -87,7 +89,9 @@ def is_vn_syllable(word: str) -> bool:
 
 
 ORG_ENDERS = {"cao", "quân đội", "viễn thông", "việt nam", "quốc gia", "quốc tế", "y tế", "giáo dục", "thông tin", "truyền thông", "điện lực", "năng lượng",
-              "nông nghiệp", "nông thôn", "công nghệ cao"}
+              "nông nghiệp", "nông thôn", "công nghệ cao", "tác chiến", "điện tử", "tham mưu", "hậu cần", "chính trị", "quân sự", "tình báo", "trinh sát",
+              "phòng không", "không quân", "hải quân", "pháo binh", "công binh", "tên lửa", "cơ yếu", "tài chính", "kế hoạch", "nghiên cứu", "hành chính",
+              "nhân sự", "đối ngoại", "công nghệ"}
 _KW_FIRST = {k.split()[0].lower() for k in ORG_KW.split("|")}
 _RX_KW = re.compile(rf"(?<!\w)(?i:{ORG_KW})(?!\w)")
 
@@ -208,7 +212,10 @@ def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidat
     alias: dict[str, str] = {}
 
     def lower_seen(word):
-        """Từ in hoa mà dạng thường cũng xuất hiện ("HÌNH" ~ "hình") là chữ tiêu đề, không phải viết tắt."""
+        """Từ in hoa mà dạng thường cũng xuất hiện ("HÌNH" ~ "hình") là chữ tiêu đề, không phải viết tắt.
+        Từ có chữ số (BV3C) không phải chữ thường: dạng thường "bv3c.system" là tên bảng/đường dẫn của chính mã đó."""
+        if any(ch.isdigit() for ch in word):
+            return False
         return re.search(rf"(?<!\w){re.escape(word.lower())}(?!\w)", text) is not None
 
     def add(value, kind, checked):
@@ -244,6 +251,10 @@ def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidat
         if core != full and len(core) >= 3 and core[0].isupper() and len(core.split()) <= 3 and not re.fullmatch(rf"(?i:{ORG_WORDS}|\s)+", core):
             add(core, "ORG", True)
             alias.setdefault(core, full.strip(" \t.,;:"))
+        tail = core.split()[-1] if core else ""  # "…Công nghệ cao Viettel": tên riêng cuối cụm cũng hay đứng một mình
+        if " " in core and len(tail) >= 4 and tail[0].isupper() and tail.isalpha() and not is_vn_syllable(tail) and tail.lower() not in FORM_WORDS and tail not in found:
+            add(tail, "ORG", True)
+            alias.setdefault(tail, full.strip(" \t.,;:"))
     for m in RX_TITLED.finditer(text):
         add(m.group(1), "PERSON", True)
 
