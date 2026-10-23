@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.9.5**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.9.6**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -21,7 +21,7 @@
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
 
-## 2026-10-23 — chưa phát hành (sau v0.9.5): chặn lặp lại lỗi đóng gói
+## 2026-10-23 — v0.9.6: chặn lặp lại lỗi đóng gói
 - Phân biệt Thuật ngữ / Mã / Biến (`anonymize.detect`): loại mới `TECH` "Thuật ngữ" và `IDENT` "Biến/định danh" (không chọn sẵn), `PROJECT` đổi nhãn thành "Mã" (chọn sẵn, gồm viết tắt chưa rõ). Thuật ngữ = có trong `techterms.TECH_TERMS` (viễn thông/radar/điện tử/IT) hoặc được định nghĩa tiếng Anh ngay trong văn bản (initials khớp: "TDOA (Time Difference of Arrival)"); tiền tố của mã có gạch nối (BVL trong BVL-GN-CNP, RADAR trong RADAR-01) luôn là Mã; định danh = snake_case/camelCase/PascalCase (FFT_WINDOW_FLAT: gạch dưới không còn là dấu nối của mã). Loại từ điển `SAFE: <từ>` = không bao giờ dò/mã hoá (áp dụng cho mọi từ điển; `load_safe`). Test `test_detect_term_vs_code`. Giới hạn: bảng thuật ngữ không đầy đủ, mã dự án trùng tên thuật ngữ cần chỉnh tay.
 - Dò mã viết tắt: BVL/BV3C không được dò. Nguyên nhân: viết tắt in hoa phải lặp ≥ 3 lần (BVL chỉ xuất hiện 2 lần thì bị bỏ) và `RX_ACRONYM`/`RX_CODE` không nhận chữ+số (BV3C, BV3C-01). Nay ≥ 2 lần, nhận chữ hoa kèm số (cần ≥ 2 chữ cái, bắt đầu bằng chữ: B2B, CTT1 nhận; A1, 4G không). Thử trên Dau B_11…docx: 71 → 80 ứng viên (thêm mã như CTT1, GM1, RX1).
 - `requirements.txt`: mọi phụ thuộc trực tiếp có cận trên theo major (nâng major phải thử trước).
