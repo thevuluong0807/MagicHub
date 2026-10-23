@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.9.1**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.9.2**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -21,7 +21,7 @@
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
 
-## 2026-10-23 — chưa phát hành
+## 2026-10-23 — v0.9.2
 - Compress mở rộng: thêm Word/Excel/PowerPoint (docx/xlsx/pptx, nén lại ảnh trong `*/media/`, giữ tên + định dạng ảnh), mức "Cực mạnh", ô "Dung lượng tối đa (MB)" (tự thử mức mạnh dần tới khi đạt; không đạt → lỗi, xoá file dở). PNG: chỉ giảm màu ở mức Mạnh trở lên. Doc/xls/ppt cũ (.doc/.xls/.ppt) không hỗ trợ. Test `test_compress_office_target`.
 - Tự cập nhật khi chạy từ source (run.bat / clone git): trước đây `mode()` = manual nên chỉ mở trang GitHub. Nay mode `git`: `git pull --ff-only` + `pip install -r requirements.txt` rồi tự khởi động lại (chờ 2 s để nhả ổ khoá). Cây làm việc có sửa đổi xung đột thì báo lỗi, không ghi đè. Bản đóng gói (Setup.exe/AppImage) giữ nguyên. Test `test_updater_git`.
 
