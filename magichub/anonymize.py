@@ -64,6 +64,7 @@ RX_ID = re.compile(r"(?<![\w.])\d{9}(?:\d{3})?(?!\w)(?!\.\d)")  # CCCD 12 số /
 RX_CODE = re.compile(rf"(?<![\w-])(?:\d+\.)?[{UP}][{UP}\d]+(?:[-/.][{UP}\d]+)+(?![\w-])")  # BVL-2026-01, BV3C-01, 11.BVL-HS, VT/2026/05 (gạch dưới = định danh/biến)
 SP = r"[ \t\u00a0]+"  # cùng một dòng: tên không vắt qua đoạn/ô bảng khác
 RX_ORG = re.compile(rf"(?<!\w)(?=[{UP}])(?i:{ORG_KW})(?:{SP}(?:(?i:cổ{SP}phần)|(?i:{ORG_WORDS})(?![\w-])|(?i:và|của)(?={SP}(?:(?i:{ORG_WORDS})|[{UP}]\w*{SP}(?i:{ORG_WORDS}))(?![\w-]))|[{UP}][\w&'’-]*|&|[-–]|TNHH|CP|MTV))+(?:{SP}\d+)?")
+RX_INITIALS = re.compile(rf"(?<![\w.])(?:[{UP}]\.[ \t]?){{2,3}}[{UP}][^\W\d_]+")  # D.M.Tùng, N.V. Trường (khung tên ở footer): ≥ 2 chữ cái đầu, tránh "P. Tổng"
 RX_TITLED = re.compile(rf"\b{TITLES}{SP}((?:[{UP}][^\W\d_]*)(?:{SP}[{UP}][^\W\d_]*){{0,3}})")
 RX_IDENT = re.compile(r"(?<![\w.])(?:[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+|[a-z][a-z0-9]*(?:[A-Z][a-z0-9]+)+|(?:[A-Z][a-z0-9]+){2,})(?![\w])")  # FFT_WINDOW_FLAT, getUserName, UserName
 RX_DEFINED = re.compile(rf"(?<![\w-])([{UP}]{{2,8}})[ \t]*\(([A-Za-z][A-Za-z \-/]{{4,80}})\)")  # TDOA (Time Difference of Arrival)
@@ -258,6 +259,8 @@ def detect(paragraphs: list[str], safe: set[str] | None = None) -> list[Candidat
             alias.setdefault(tail, full.strip(" \t.,;:"))
     for m in RX_TITLED.finditer(text):
         add(m.group(1), "PERSON", True)
+    for m in RX_INITIALS.finditer(text):
+        add(m.group(0), "PERSON", True)
 
     # cụm từ viết hoa liên tiếp (2-5 từ); họ phổ biến đứng đầu => người
     for line in paragraphs:

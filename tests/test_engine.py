@@ -131,6 +131,8 @@ def test_detect_lowercase_path_and_military_org(td):
     assert got["Cục tác chiến điện tử"].kind == "ORG"
     assert got["Viettel"].kind == "ORG"
     assert "Phòng ngừa" not in got and "Ban hành" not in got
+    names = {c.value for c in an.detect(["Duyệt D.M.Tùng", "Kiểm tra N.V. Trường", "P. Tổng giám đốc ký"])}  # khung tên ở footer: chữ cái đầu viết tắt
+    assert {"D.M.Tùng", "N.V. Trường"} <= names and "P. Tổng" not in names
     # mã dính liền chữ khác: BVLclient, BVLClient, myBVL, BVL_server đều bị mã hoá; BVL2/BVLC/XBVL (mã khác) thì không
     m = an.Mapper([("BVL", "PROJECT", None)])
     for text, n in (("BVL Client", 1), ("BVLclient", 1), ("BVLClient", 1), ("myBVL", 1), ("BVL_server", 1), ("BVL2", 0), ("BVLC", 0), ("XBVL", 0), ("bvlclient", 0)):
