@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.9.11**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.9.12**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -20,6 +20,11 @@
 
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
+
+## 2026-10-23 — v0.9.12 (chỉ build Windows)
+- Mã hoá: thanh tiến độ 0-100% khi quét (hủy được); thẻ tiến trình hiện % trên thanh.
+- Dò: tên viết bằng chữ cái đầu (D.M.Tùng, N.V. Trường); mã dính liền chữ khác nhanh hơn ~12 lần (sửa lỗi chậm do tính gấp văn bản lặp lại).
+- Mã hoá thuộc tính tài liệu (core/app/custom.xml): trường SUBJECT/TITLE ở bìa không còn lộ mã.
 
 ## 2026-10-23 — v0.9.7 (không phát hành, CI Linux lỗi smoke) → v0.9.8 (cũng không phát hành: runner Linux thiếu libEGL) → v0.9.9 (smoke Linux vẫn lỗi; build Linux chuyển sang ubuntu-latest) → v0.9.10 (smoke Linux lỗi: thiếu backend pynput _xorg) → v0.9.11 (chỉ build Windows; Linux/macOS tạm tắt trong release.yml)
 - v0.9.6 không phát hành: bước smoke test trên Linux CI lỗi vì `pynput` cần X server (runner không có). Sửa: chạy smoke dưới `xvfb-run`. Windows chưa từng chạy tới bước smoke.
