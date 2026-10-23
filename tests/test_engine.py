@@ -133,6 +133,28 @@ def test_detect_lowercase_path_and_military_org(td):
     assert "Phòng ngừa" not in got and "Ban hành" not in got
 
 
+def test_word_lock(td):
+    import zipfile
+    from magichub import wordlock
+
+    src = Path(td) / "w.docx"
+    with zipfile.ZipFile(src, "w") as z:
+        z.writestr("word/document.xml", "<d/>")
+        z.writestr("word/settings.xml", '<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:zoom w:percent="100"/><w:defaultTabStop w:val="720"/></w:settings>')
+    (o,) = by_id("edit.protect").run([src], {"password": "s3cr3t"})
+    xml = zipfile.ZipFile(o).read("word/settings.xml").decode()
+    assert xml.index("zoom") < xml.index("documentProtection") < xml.index("defaultTabStop") and 'edit="readOnly"' in xml
+    assert zipfile.ZipFile(o).read("word/document.xml") == b"<d/>"
+    try:
+        by_id("edit.unlock").run([o], {"password": "wrong"})
+        assert False
+    except ValueError as e:
+        assert "sai mật khẩu" in str(e)
+    (u,) = by_id("edit.unlock").run([o], {"password": "s3cr3t"})
+    assert "documentProtection" not in zipfile.ZipFile(u).read("word/settings.xml").decode()
+    assert by_id("edit.protect").accepts([src]) and not by_id("edit.protect").accepts([Path(td) / "a.doc"])
+
+
 def test_anonymize(td):
     """Dò + mã hoá + Restore vòng tròn trên docx/xlsx/pptx/txt: không còn giá trị gốc, khôi phục đúng từng đoạn, giữ định dạng."""
     import docx, openpyxl, pptx

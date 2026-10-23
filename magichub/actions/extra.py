@@ -6,7 +6,7 @@ import io
 import pymupdf
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 
-from .base import action, find_font, kind_of, open_pdf, out_path, save_pdf, steps, tmpdir
+from .base import action, ext, find_font, kind_of, open_pdf, out_path, save_pdf, steps, tmpdir
 from .convert import images_to_pdf
 from .edit import PDF, PI, _form, save_img
 
@@ -91,11 +91,20 @@ def flatten(files, p):
 
 
 # ---------- Unlock ----------
-@action("edit.unlock", "edit", "Unlock", "Gỡ mật khẩu PDF (cần biết mật khẩu hiện tại)", kinds=PDF,
+@action("edit.unlock", "edit", "Unlock", "Gỡ mật khẩu PDF hoặc khoá chỉ-đọc Word (.docx) (cần biết mật khẩu hiện tại)", kinds=PDF + ("doc",), check=lambda fs: all(ext(f) in ("pdf", "docx") for f in fs),
         ask=_form("Gỡ mật khẩu", [{"name": "password", "label": "Mật khẩu hiện tại", "type": "text", "required": True}]))
 def unlock(files, p):
     outs = []
     for f in files:
+        if ext(f) == "docx":
+            from .. import wordlock
+
+            o = out_path(f, "unlocked")
+            if not wordlock.unlock(f, o, p["password"]):
+                o.unlink()
+                raise ValueError(f"{f.name}: file không bị khoá chỉnh sửa")
+            outs.append(o)
+            continue
         doc = pymupdf.open(str(f))
         if doc.needs_pass and not doc.authenticate(p["password"]):
             doc.close()

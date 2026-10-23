@@ -1,0 +1,87 @@
+"""Khoá/mở khoá chỉnh sửa file Word (.docx): "Restrict Editing -> No changes (Read only)" kèm mật khẩu, như Word làm (word/settings.xml, w:documentProtection)."""
+from __future__ import annotations
+
+import base64
+import hashlib
+import os
+import zipfile
+from pathlib import Path
+
+from lxml import etree
+
+W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+Q = lambda n: f"{{{W}}}{n}"
+SETTINGS = "word/settings.xml"
+ALGO = {"4": "sha1", "12": "sha256", "13": "sha384", "14": "sha512"}  # w:cryptAlgorithmSid
+SPIN = 100000
+# Thứ tự phần tử trong CT_Settings: documentProtection đứng sau các phần tử này
+BEFORE = {"writeProtection", "view", "zoom", "removePersonalInformation", "removeDateAndTime", "doNotDisplayPageBoundaries", "displayBackgroundShape",
+          "printPostScriptOverText", "printFractionalCharacterWidth", "printFormsData", "embedTrueTypeFonts", "embedSystemFonts", "saveSubsetFonts",
+          "saveFormsData", "mirrorMargins", "alignBordersAndEdges", "bordersDoNotSurroundHeader", "bordersDoNotSurroundFooter", "gutterAtTop",
+          "hideSpellingErrors", "hideGrammaticalErrors", "activeWritingStyle", "proofState", "formsDesign", "attachedTemplate", "linkStyles",
+          "stylePaneFormatFilter", "stylePaneSortMethod", "documentType", "mailMerge", "revisionView", "trackRevisions", "doNotTrackMoves", "doNotTrackFormatting"}
+
+
+def _hash(password: str, salt: bytes, algo: str, spin: int) -> bytes:
+    h = hashlib.new(algo, salt + password.encode("utf-16-le")).digest()
+    for i in range(spin):
+        h = hashlib.new(algo, h + i.to_bytes(4, "little")).digest()
+    return h
+
+
+def _rewrite(src: Path, out: Path, edit) -> None:
+    """Chép src -> out, thay word/settings.xml bằng edit(root). Các phần khác giữ nguyên byte."""
+    try:
+        zin = zipfile.ZipFile(src)
+    except zipfile.BadZipFile:
+        raise ValueError(f"{src.name}: không phải file .docx hợp lệ") from None
+    with zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        if SETTINGS not in zin.namelist():
+            raise ValueError(f"{src.name}: thiếu {SETTINGS}")
+        for it in zin.infolist():
+            data = zin.read(it.filename)
+            if it.filename == SETTINGS:
+                root = etree.fromstring(data)
+                edit(root)
+                data = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
+            zout.writestr(it, data)
+
+
+def lock(src: Path, out: Path, password: str) -> None:
+    salt = os.urandom(16)
+
+    def edit(root):
+        for old in root.findall(Q("documentProtection")):
+            root.remove(old)
+        el = etree.Element(Q("documentProtection"))
+        for k, v in (("edit", "readOnly"), ("enforcement", "1"), ("cryptProviderType", "rsaAES"), ("cryptAlgorithmClass", "hash"),
+                     ("cryptAlgorithmType", "typeAny"), ("cryptAlgorithmSid", "14"), ("cryptSpinCount", str(SPIN)),
+                     ("hash", base64.b64encode(_hash(password, salt, "sha512", SPIN)).decode()), ("salt", base64.b64encode(salt).decode())):
+            el.set(Q(k), v)
+        at = 0
+        for i, ch in enumerate(root):
+            if etree.QName(ch).localname in BEFORE:
+                at = i + 1
+        root.insert(at, el)
+
+    _rewrite(src, out, edit)
+
+
+def unlock(src: Path, out: Path, password: str) -> bool:
+    """Gỡ khoá; trả True nếu file có khoá. Sai mật khẩu -> ValueError."""
+    found = []
+
+    def edit(root):
+        for el in root.findall(Q("documentProtection")):
+            found.append(1)
+            h, s = el.get(Q("hash")), el.get(Q("salt"))
+            if h and s:  # có mật khẩu
+                algo = ALGO.get(el.get(Q("cryptAlgorithmSid"), ""))
+                if not algo:
+                    raise ValueError(f"{src.name}: kiểu mã hoá mật khẩu không hỗ trợ")
+                if _hash(password, base64.b64decode(s), algo, int(el.get(Q("cryptSpinCount"), "0"))) != base64.b64decode(h):
+                    raise ValueError(f"{src.name}: sai mật khẩu")
+            root.remove(el)
+
+    _rewrite(src, out, edit)
+    return bool(found)

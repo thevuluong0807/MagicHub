@@ -8,7 +8,7 @@ from pathlib import Path
 import pymupdf
 from PIL import Image, ImageOps
 
-from .base import action, find_font, kind_of, open_pdf, out_path, save_pdf, steps, tmpdir
+from .base import action, ext, find_font, kind_of, open_pdf, out_path, save_pdf, steps, tmpdir
 from .convert import images_to_pdf
 
 PDF, PI = ("pdf",), ("pdf", "img")
@@ -29,11 +29,17 @@ def _words(s: str) -> list[str]:
 
 
 # ---------- Protect ----------
-@action("edit.protect", "edit", "Protect", "Đặt mật khẩu mở PDF (AES-256)", kinds=PDF,
+@action("edit.protect", "edit", "Protect", "PDF: đặt mật khẩu mở (AES-256). Word (.docx): khoá chỉ-đọc, cần mật khẩu mới sửa được", kinds=PDF + ("doc",), check=lambda fs: all(ext(f) in ("pdf", "docx") for f in fs),
         ask=_form("Đặt mật khẩu", [{"name": "password", "label": "Mật khẩu", "type": "password", "required": True}]))
 def protect(files, p):
     outs = []
     for f in steps(files):
+        if ext(f) == "docx":
+            from .. import wordlock
+
+            outs.append(out_path(f, "locked"))
+            wordlock.lock(f, outs[-1], p["password"])
+            continue
         doc = open_pdf(f)
         outs.append(save_pdf(doc, out_path(f, "protected"), encryption=pymupdf.PDF_ENCRYPT_AES_256,
                              user_pw=p["password"], owner_pw=p["password"]))
