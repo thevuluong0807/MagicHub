@@ -3,7 +3,7 @@
 > **Đọc file này đầu mỗi phiên làm việc** trước khi sửa gì. Cuối phiên: cập nhật "Trạng thái" + "Việc tiếp theo", thêm mục nhật ký.
 
 ## Trạng thái (2026-10-19)
-- Bản hiện tại: **v0.9.2**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
+- Bản hiện tại: **v0.9.3**. CI: v0.6.0 xanh cả 3 OS. `tests/test_engine.py` ALL PASS.
 - Có: vòng tròn + hotkey giữ phím; Convert (PDF/Office/ảnh/txt); Organize đủ bộ; Edit (protect, redact, highlight, text, image, crop); CLI `run|menu|do|actions`; 7 file docs.
 - Đã kiểm: engine, hình học, clipboard→vòng tròn→job trên Linux/X11.
 - Chưa kiểm: file manager thật (Nautilus/Explorer/Finder), Windows, macOS, Wayland.
@@ -21,7 +21,7 @@
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
 
-## 2026-10-23 — chưa phát hành (sau v0.9.2)
+## 2026-10-23 — v0.9.3
 - Sửa nháy cửa sổ PowerShell/console trên Windows: `base.NO_WINDOW` (CREATE_NO_WINDOW) cho `run_proc`, taskkill, tesseract, updater; PowerShell `-WindowStyle Hidden`. Test `test_no_console_window` (giả Popen). Chưa thử trên Windows thật.
 - Mã hoá clipboard (menu khay, `app.py`: `anon_clipboard`/`restore_clipboard`/`clear_clip_mapping`, mapping gần nhất ở `clipboard_mapping.json`); gộp họ mã gọi tắt (`Candidate.alias_of`, `[ORG_1]`/`[ORG_1s]`). Test `test_clipboard_anonymize`.
 - Mã hoá văn bản (`anonymize.py`, `actions/anon.py`, `ask_anonymize`/`ask_mapping` trong dialogs): dò (regex + heuristic tiếng Việt, không cần model), thay giữ định dạng run trong docx/xlsx/pptx (+header/footer/ghi chú/bình luận/sharedStrings), txt/md. Mapping xlsx cạnh file; Restore tự tìm mapping, chịu AI bỏ ngoặc/đổi hoa thường; kiểm tra sót (mọi part XML + số ảnh nhúng) ghi vào sheet "Lưu ý". Test `test_anonymize`. Sau đó: khớp không phân biệt hoa thường/dấu/khoảng trắng (`Mapper`, gấp từng ký tự giữ chỉ số), biến thể có mã `v1…` để Restore chính xác từng chỗ, gộp biến thể khi dò, từ điển theo dự án (`config.anonymize_dicts`, dòng `KIND: giá trị`). Chưa: PDF, ảnh/biểu đồ (chỉ cảnh báo), chế độ dán text clipboard. Không làm: mật khẩu mapping, gộp mã gọi tắt (người dùng không cần).
