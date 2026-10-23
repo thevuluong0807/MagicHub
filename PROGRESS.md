@@ -21,6 +21,9 @@
 ## Nhật ký
 Ghi mọi thay đổi ở đây, mới nhất ở trên.
 
+## 2026-10-23 — chưa phát hành
+- Tự cập nhật khi chạy từ source (run.bat / clone git): trước đây `mode()` = manual nên chỉ mở trang GitHub. Nay mode `git`: `git pull --ff-only` + `pip install -r requirements.txt` rồi tự khởi động lại (chờ 2 s để nhả ổ khoá). Cây làm việc có sửa đổi xung đột thì báo lỗi, không ghi đè. Bản đóng gói (Setup.exe/AppImage) giữ nguyên. Test `test_updater_git`.
+
 ## 2026-10-21 — v0.9.1
 - Hotfix Protect/Unlock: bấm OK không đóng hộp thoại. `ask_form.value()` dựng dict có `w.currentText`/`w.value` tính ngay nên `QLineEdit` ném `AttributeError` trong slot `accept()` (chỉ in ra console). Nay dùng lambda. Test `test_ask_form`.
 

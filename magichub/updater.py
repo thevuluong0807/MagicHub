@@ -1,10 +1,11 @@
 """Kiểm tra và cài bản mới từ GitHub Releases. Không import Qt. Tắt bằng config `update_check: false` hoặc MAGICHUB_NO_UPDATE=1.
 AppImage (Linux): tải bản mới, thay file đang chạy, khởi động lại. Windows (đã đóng gói): chạy MagicHub-Setup.exe.
-macOS / chạy từ source: chỉ báo có bản mới và mở trang Release."""
+Chạy từ source (clone git, ví dụ run.bat): git pull + pip install, khởi động lại. macOS / source không có git: mở trang Release."""
 from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -15,6 +16,7 @@ from .actions.base import report, steps  # noqa: F401  (report: tiến trình t�
 
 REPO = "thevuluong0807/MagicHub"
 API = f"https://api.github.com/repos/{REPO}/releases/latest"
+ROOT = Path(__file__).resolve().parent.parent
 UA = {"User-Agent": f"MagicHub/{__version__}"}
 
 
@@ -40,12 +42,22 @@ def check(current: str = __version__, fetch=fetch_latest) -> dict | None:
 
 
 def mode() -> str:
-    """Cách cập nhật tại chỗ cho bản đang chạy: 'appimage' | 'windows' | 'manual'."""
+    """Cách cập nhật tại chỗ cho bản đang chạy: 'appimage' | 'windows' | 'git' | 'manual'."""
     if sys.platform.startswith("linux") and os.environ.get("APPIMAGE"):
         return "appimage"
     if sys.platform == "win32" and getattr(sys, "frozen", False):
         return "windows"
+    if not getattr(sys, "frozen", False) and (ROOT / ".git").exists() and shutil.which("git"):
+        return "git"
     return "manual"
+
+
+def _run(cmd: list[str]) -> str:
+    kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}  # pythonw: không nháy cửa sổ console
+    r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=600, **kw)
+    if r.returncode:
+        raise RuntimeError(f"{' '.join(cmd[:2])}: {(r.stderr or r.stdout).strip()[-300:]}")
+    return r.stdout
 
 
 def download(url: str, dest: Path, label: str = "") -> Path:
@@ -82,6 +94,12 @@ def apply(info: dict) -> list[Path]:
             raise RuntimeError("Release này chưa có MagicHub-Setup.exe")
         setup = download(url, Path(os.environ.get("TEMP", ".")) / "MagicHub-Setup.exe", "Tải bản cài")
         return [setup]
+    if m == "git":
+        report(None, "git pull…")
+        _run(["git", "pull", "--ff-only", "origin"])  # cây làm việc có sửa đổi xung đột -> git báo lỗi, không ghi đè
+        report(None, "Cập nhật thư viện…")
+        _run([sys.executable, "-m", "pip", "install", "-q", "-r", "requirements.txt"])
+        return [ROOT]
     return []
 
 
@@ -91,3 +109,7 @@ def restart(installed: list[Path]) -> None:
         subprocess.Popen(["sh", "-c", 'sleep 2; exec "$0"', str(installed[0])], start_new_session=True)
     elif mode() == "windows":
         subprocess.Popen([str(installed[0]), "/SILENT", "/SUPPRESSMSGBOXES"], close_fds=True)
+    elif mode() == "git":
+        flags = (subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP) if sys.platform == "win32" else 0
+        boot = "import time, runpy; time.sleep(2); runpy.run_module('magichub', run_name='__main__')"  # chờ tiến trình cũ nhả ổ khoá một-bản-chạy
+        subprocess.Popen([sys.executable, "-c", boot], cwd=ROOT, close_fds=True, creationflags=flags, start_new_session=sys.platform != "win32")

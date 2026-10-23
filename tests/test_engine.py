@@ -483,6 +483,37 @@ def test_progress_engine(td):
         cfg = config.load(); cfg["engine"] = "auto"; config.save(cfg)
 
 
+def test_updater_git(td):
+    """Chạy từ clone git: apply() kéo commit mới (git pull --ff-only), mode() = 'git'."""
+    import subprocess
+    from magichub import updater
+    g = lambda cwd, *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=cwd, check=True, capture_output=True)
+    src, dst = td / "src", td / "dst"
+    src.mkdir()
+    g(src, "init", "-q", "-b", "main")
+    (src / "requirements.txt").write_text("")
+    (src / "v.txt").write_text("1")
+    g(src, "add", "-A"), g(src, "commit", "-qm", "1")
+    g(td, "clone", "-q", str(src), "dst")
+    (src / "v.txt").write_text("2")
+    g(src, "commit", "-qam", "2")
+    old = updater.ROOT
+    updater.ROOT = dst
+    try:
+        assert updater.mode() == "git"
+        assert updater.apply({"assets": {}}) == [dst] and (dst / "v.txt").read_text() == "2"
+        (dst / "v.txt").write_text("sửa tay")  # sửa đổi cục bộ + commit mới xung đột: báo lỗi, không ghi đè
+        (src / "v.txt").write_text("3")
+        g(src, "commit", "-qam", "3")
+        try:
+            updater.apply({"assets": {}})
+            raise AssertionError("phải báo lỗi")
+        except RuntimeError:
+            assert (dst / "v.txt").read_text() == "sửa tay"
+    finally:
+        updater.ROOT = old
+
+
 def test_updater(td):
     import http.server, threading
     from magichub import updater
@@ -609,7 +640,7 @@ def test_hub_toast(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_progress_engine, test_hub_toast, test_updater):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)
