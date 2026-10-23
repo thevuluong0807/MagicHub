@@ -78,6 +78,39 @@ def test_organize(td):
     assert len(pymupdf.open(str(o))) == 4
 
 
+def test_compress_office_target(td):
+    """docx/pptx/xlsx: nén ảnh trong media/, file mở lại được; target_mb tự tăng mức nén, không đạt thì báo lỗi và không để lại file."""
+    import docx
+    noise = Image.effect_noise((1800, 1400), 90).convert("RGB")
+    jpg = td / "n.jpg"
+    noise.save(jpg, quality=98)
+    d = docx.Document()
+    d.add_picture(str(jpg))
+    src = td / "big.docx"
+    d.save(src)
+    (o,) = run("organize.compress", [src], level="Mạnh")
+    assert o.stat().st_size < src.stat().st_size / 2 and len(docx.Document(str(o)).inline_shapes) == 1
+    # target_mb: bắt đầu từ mức Nhẹ (còn quá lớn) và tự tăng mức tới khi đạt
+    limit = (o.stat().st_size // 1048576) + 1
+    (t,) = run("organize.compress", [src], level="Nhẹ (giữ nét)", target_mb=limit)
+    assert t.stat().st_size <= limit * 1048576
+    big = td / "pic.jpg"
+    Image.effect_noise((4000, 3000), 90).convert("RGB").save(big, quality=100)
+    assert big.stat().st_size > 3 * 1048576
+    (u,) = run("organize.compress", [big], level="Nhẹ (giữ nét)", target_mb=2)
+    assert u.stat().st_size <= 2 * 1048576
+    from magichub.actions import organize
+    real = organize._shrink
+    organize._shrink = lambda f, out, level: out.write_bytes(b"x" * (3 * 1048576))  # nén kiểu gì cũng 3 MB
+    try:
+        run("organize.compress", [src], level="Cực mạnh", target_mb=1)
+        raise AssertionError("phải báo lỗi")
+    except ValueError as e:
+        assert "3.0 MB" in str(e) and not list(td.glob("big_small*.tmp")) and len(list(td.glob("big_small*.docx"))) == 2  # 2 file thành công ở trên, không có file dở
+    finally:
+        organize._shrink = real
+
+
 def test_options(td):
     big = Image.effect_noise((1600, 1200), 80).convert("RGB")
     jpg = td / "n.jpg"
@@ -640,7 +673,7 @@ def test_hub_toast(td):
 
 if __name__ == "__main__":
     test_geometry()
-    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
+    for t in (test_available, test_organize, test_options, test_v03, test_integrate, test_v05, test_sandbox, test_convert, test_pdf_table, test_edit, test_v07, test_compress_office_target, test_progress_engine, test_hub_toast, test_updater, test_updater_git):
         with tempfile.TemporaryDirectory() as d:
             t(Path(d))
         print("ok", t.__name__)

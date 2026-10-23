@@ -29,7 +29,7 @@ Chọn nhiều file thì tất cả phải cùng loại (trừ Merge nhận PDF+
 | Split | Tách PDF | Khoảng trang; trống = từng trang |
 | Pages | Lấy các trang chọn ra PDF mới | Khoảng trang `1-3,5,7-` |
 | Images | Lấy ảnh nhúng trong PDF vào thư mục | — |
-| Compress | Nén PDF/ảnh; thông báo cho thấy dung lượng trước → sau | Mức nén (Nhẹ/Vừa/Mạnh) |
+| Compress | Nén PDF, ảnh, Word/Excel/PowerPoint (docx/xlsx/pptx: nén ảnh bên trong); thông báo cho thấy dung lượng trước → sau | Mức nén (Nhẹ/Vừa/Mạnh/Cực mạnh) + Dung lượng tối đa (MB). Đặt ví dụ 25 thì tự tăng mức nén cho tới khi ≤ 25 MB; nén mạnh nhất vẫn quá thì báo lỗi, không tạo file |
 | OCR | PDF scan → PDF chọn/copy được chữ (cần Tesseract) | — |
 | Protect | Đặt mật khẩu mở PDF | Mật khẩu 2 lần |
 | Redact | Che đen + xoá thật nội dung khớp từ khoá và/hoặc vùng tự kéo; có bước xem trước | Từ khoá (tuỳ chọn), rồi xem trước: khung cam = khớp, kéo chuột thêm vùng đen |

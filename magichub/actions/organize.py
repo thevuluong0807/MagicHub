@@ -1,6 +1,7 @@
 """Nhóm Organize: merge, split, rotate, compress, extract, zip."""
 from __future__ import annotations
 
+import io
 import zipfile
 from pathlib import Path
 
@@ -82,35 +83,92 @@ action("organize.rotate_ccw", "organize", "↺ 90°", "Xoay trái 90°", kinds=(
 
 
 # mức nén: (dpi ảnh PDF, chất lượng JPEG PDF, cạnh dài tối đa ảnh, chất lượng ảnh)
-LEVELS = {"Nhẹ (giữ nét)": (150, 80, 3200, 85), "Vừa": (110, 65, 2560, 72), "Mạnh": (72, 45, 1600, 55)}
+LEVELS = {"Nhẹ (giữ nét)": (150, 80, 3200, 85), "Vừa": (110, 65, 2560, 72), "Mạnh": (72, 45, 1600, 55), "Cực mạnh": (50, 35, 1200, 40)}
+OOXML = {"docx", "xlsx", "pptx"}
+_MEDIA = ("png", "jpg", "jpeg")
 
 
 def _ask_level(files):
     from ..dialogs import ask_form
 
-    return ask_form("Nén", [{"name": "level", "label": "Mức nén", "type": "choice", "choices": list(LEVELS)}])
+    return ask_form("Nén", [
+        {"name": "level", "label": "Mức nén", "type": "choice", "choices": list(LEVELS)},
+        {"name": "target_mb", "label": "Dung lượng tối đa (MB, 0 = chỉ theo mức nén; >0 = tự tăng mức nén cho tới khi đạt)",
+         "type": "int", "min": 0, "max": 2000, "default": 0},
+    ])
 
 
-@action("organize.compress", "organize", "Compress", "Nén PDF/ảnh (giảm độ phân giải ảnh, tối ưu cấu trúc)",
-        kinds=("pdf", "img"), ask=_ask_level)
+def _shrink_image(im: Image.Image, fmt: str, side: int, q: int, strong: bool) -> bytes:
+    im = ImageOps.exif_transpose(im)
+    im.thumbnail((side, side))
+    buf = io.BytesIO()
+    if fmt == "jpeg":
+        im.convert("RGB").save(buf, "JPEG", quality=q, optimize=True)
+    else:
+        if strong and im.mode in ("RGB", "RGBA"):  # PNG ảnh chụp: giảm còn 256 màu (giữ alpha)
+            im = im.quantize(256, method=Image.Quantize.FASTOCTREE if im.mode == "RGBA" else Image.Quantize.MEDIANCUT)
+        im.save(buf, "PNG", optimize=True)
+    return buf.getvalue()
+
+
+def _shrink_ooxml(src: Path, out: Path, level: tuple):
+    """docx/xlsx/pptx là file zip: nén lại ảnh trong */media/*, giữ nguyên tên + định dạng nên không phải sửa quan hệ XML."""
+    _, _, side, q = level
+    with zipfile.ZipFile(src) as zin, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for i in zin.infolist():
+            data = zin.read(i)
+            e = i.filename.rsplit(".", 1)[-1].lower()
+            if "/media/" in i.filename and e in _MEDIA and len(data) > 20_000:
+                try:
+                    new = _shrink_image(Image.open(io.BytesIO(data)), "jpeg" if e != "png" else "png", side, q, q < 60)
+                    if len(new) < len(data):
+                        data = new
+                except Exception:  # ảnh lạ/hỏng: giữ nguyên bản gốc
+                    pass
+            zout.writestr(i, data)
+
+
+def _shrink(f: Path, out: Path, level: tuple):
+    dpi, q_pdf, side, q_img = level
+    k = kind_of(f)
+    if k == "pdf":
+        doc = open_pdf(f)
+        doc.rewrite_images(dpi_threshold=dpi + 40, dpi_target=dpi, quality=q_pdf)
+        save_pdf(doc, out, clean=True, use_objstms=True)
+    elif k == "img":
+        im = ImageOps.exif_transpose(Image.open(f))
+        im.thumbnail((side, side))
+        fmt = (f.suffix.lower().lstrip(".")).replace("jpg", "jpeg")
+        if fmt in ("jpeg", "webp"):
+            im.convert("RGB").save(out, fmt.upper(), quality=q_img, optimize=True)
+        else:
+            im.save(out, optimize=True)
+    else:
+        _shrink_ooxml(f, out, level)
+
+
+@action("organize.compress", "organize", "Compress", "Nén PDF/ảnh/Word/Excel/PowerPoint (giảm ảnh bên trong); đặt dung lượng tối đa để tự nén tới khi đạt",
+        kinds=("pdf", "img", "doc", "xls", "ppt"), ask=_ask_level,
+        check=lambda files: all(kind_of(f) in ("pdf", "img") or f.suffix.lower().lstrip(".") in OOXML for f in files))
 def compress(files, p):
-    dpi, q_pdf, side, q_img = LEVELS[p.get("level", "Vừa")]
+    names = list(LEVELS)
+    start = names.index(p.get("level", "Vừa"))
+    limit = int(p.get("target_mb") or 0) * 1024 * 1024
     outs = []
     for f in steps(files):
         out = out_path(f, "small")
-        if kind_of(f) == "pdf":
-            doc = open_pdf(f)
-            doc.rewrite_images(dpi_threshold=dpi + 40, dpi_target=dpi, quality=q_pdf)
-            outs.append(save_pdf(doc, out, clean=True, use_objstms=True))
+        for n, name in enumerate(names[start:]):
+            _shrink(f, out, LEVELS[name])
+            if not limit or out.stat().st_size <= limit:
+                break
+            if name != names[-1]:
+                out.unlink()
         else:
-            im = ImageOps.exif_transpose(Image.open(f))
-            im.thumbnail((side, side))
-            fmt = (f.suffix.lower().lstrip(".")).replace("jpg", "jpeg")
-            if fmt in ("jpeg", "webp"):
-                im.convert("RGB").save(out, fmt.upper(), quality=q_img, optimize=True)
-            else:
-                im.save(out, optimize=True)
-            outs.append(out)
+            size = out.stat().st_size
+            for o in (*outs, out):
+                o.unlink(missing_ok=True)
+            raise ValueError(f"{f.name}: nén mạnh nhất vẫn {size / 1048576:.1f} MB (> {limit // 1048576} MB). Thử tách file hoặc bỏ bớt ảnh")
+        outs.append(out)
     return outs
 
 
