@@ -461,7 +461,14 @@ def glue_hits(text: str, rx, taken: list[tuple[int, int]] = (), fm=None) -> list
     out = []
     for m in rx.finditer(folded):
         a, b = origin[m.start()], origin[m.end() - 1] + 1
-        if not text[a:b].isupper() or any(a < te and ts < b for ts, te in taken):
+        if any(a < te and ts < b for ts, te in taken):
+            continue
+        if text[a:b].islower():  # tên bảng/biến snake_case: bvl_user, user_bvl_log
+            l, r = text[a - 1] if a else "", text[b] if b < len(text) else ""
+            if "_" in (l, r) and not (l.isalnum() or r.isalnum()):
+                out.append((a, b, m.group(0)))
+            continue
+        if not text[a:b].isupper():
             continue
         left_ok = a == 0 or not (text[a - 1].isupper() or text[a - 1].isdigit())
         nxt = text[b] if b < len(text) else ""

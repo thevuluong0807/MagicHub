@@ -136,7 +136,7 @@ def test_detect_lowercase_path_and_military_org(td):
     assert {"D.M.Tùng", "N.V. Trường"} <= names and "P. Tổng" not in names
     # mã dính liền chữ khác: BVLclient, BVLClient, myBVL, BVL_server đều bị mã hoá; BVL2/BVLC/XBVL (mã khác) thì không
     m = an.Mapper([("BVL", "PROJECT", None)])
-    for text, n in (("BVL Client", 1), ("BVLclient", 1), ("BVLClient", 1), ("myBVL", 1), ("BVL_server", 1), ("BVL2", 0), ("BVLC", 0), ("XBVL", 0), ("bvlclient", 0)):
+    for text, n in (("BVL Client", 1), ("BVLclient", 1), ("BVLClient", 1), ("myBVL", 1), ("BVL_server", 1), ("BVL2", 0), ("BVLC", 0), ("XBVL", 0), ("bvlclient", 0), ("bvl_user", 1), ("user_bvl_log", 1), ("bvl.user", 1), ("abvl_x", 0)):
         assert len(m.find(text)) == n, text
     assert [c.value for c in an.detect(["BVL a", "BVLclient b"])] == ["BVL"]  # 1 lần đứng riêng + 1 lần dính liền = mã lặp lại
 
