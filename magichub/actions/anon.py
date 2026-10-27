@@ -1,6 +1,7 @@
 """Ẩn danh hoá / khôi phục văn bản trước khi gửi cho AI hoặc đơn vị ngoài. Logic ở magichub/anonymize.py."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from .. import anonymize as an
@@ -67,8 +68,9 @@ def anonymize(files, p):
     mapper = an.Mapper(entries)
     outs = []
     for f in steps(files):
-        out = out_path(f, "anon")
         mapper.hits.clear()
+        stem = an.anonymize_text(f.stem, mapper)[0]  # tên file cũng bị mã hoá ("11.BVL YP" -> "11.[PROJECT_1] YP")
+        out = out_path(f.with_name(stem + f.suffix), "anon")
         an.transform(f, out, mapper.find, scrub=p.get("scrub", True))
         an.write_mapping(_mapping_path(out), mapper.rows(), an.leak_report(out, mapper), f.name)
         if p.get("password"):  # không có mật khẩu thì không mở được bảng, nên không giải mã được
@@ -116,7 +118,9 @@ def restore(files, p):
         if not m.exists():
             raise ValueError(f"{f.name}: không thấy bảng mapping ({m.name})")
         mapping = an.read_mapping(m, p.get("password"))
-        out = out_path(f, "restored")
+        stem = re.sub(r"_anon(_\d+)?$", "", f.stem)  # trả tên gốc từ tên đã mã hoá
+        stem = re.sub(r"[\\/:*?\"<>|]", "_", an.restore_text(stem, mapping)[0])
+        out = out_path(f.with_name(stem + f.suffix), "restored")
         if an.transform(f, out, an.restore_finder(mapping), restore=True) == 0:
             out.unlink(missing_ok=True)
             raise ValueError(f"{f.name}: không có mã nào khớp bảng {m.name} (nhầm file mapping?)")

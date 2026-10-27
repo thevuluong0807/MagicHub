@@ -1126,3 +1126,17 @@ if __name__ == "__main__":
     test_cropwidget()
     print("ok test_cropwidget")
     print("ok test_geometry\nALL PASS")
+
+
+def test_anonymize_filename(td):
+    """Tên file cũng được mã hoá; Giải mã trả lại tên gốc."""
+    import docx
+    from magichub.actions import anon
+    src = td / "11.BVL YP_final.docx"
+    d = docx.Document()
+    d.add_paragraph("Hệ thống BVL. Phần mềm BVL cho BVL.")
+    d.save(src)
+    outs = anon.anonymize([src], {"entries": [{"value": "BVL", "kind": "PROJECT"}], "password": "pw"})
+    assert "BVL" not in outs[0].name and "BVL" not in outs[1].name, outs
+    r = anon.restore([outs[0]], {"mapping": "", "auto": True, "password": "pw"})
+    assert "BVL" in r[0].name and "_anon" not in r[0].name, r
