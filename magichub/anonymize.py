@@ -224,10 +224,12 @@ def detect(paragraphs: list[str], safe: set[str] | None = None, progress=None) -
 
     def lower_seen(word):
         """Từ in hoa mà dạng thường cũng xuất hiện ("HÌNH" ~ "hình") là chữ tiêu đề, không phải viết tắt.
-        Từ có chữ số (BV3C) không phải chữ thường: dạng thường "bv3c.system" là tên bảng/đường dẫn của chính mã đó."""
+        Từ có chữ số (BV3C) không phải chữ thường: dạng thường "bv3c.system" là tên bảng/đường dẫn của chính mã đó.
+        Dạng thường đứng trong định danh ("bvl.user" là tên schema) cũng không tính."""
         if any(ch.isdigit() for ch in word):
             return False
-        return re.search(rf"(?<!\w){re.escape(word.lower())}(?!\w)", text) is not None
+        # bỏ qua dạng thường nằm trong định danh/đường dẫn: "bvl.user", "bvl_user", "/bvl/"
+        return re.search(rf"(?<![\w./_-]){re.escape(word.lower())}(?![\w]|[._/-]\w)", text) is not None
 
     def add(value, kind, checked):
         value = value.strip(" \t.,;:")

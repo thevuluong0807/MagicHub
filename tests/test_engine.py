@@ -128,6 +128,7 @@ def test_detect_lowercase_path_and_military_org(td):
              "Tổng Công ty Công nghiệp Công nghệ cao Viettel", "Phòng ngừa rủi ro. Ban hành quy định."]
     got = {c.value: c for c in an.detect(paras)}
     assert got["BV3C"].kind == "PROJECT" and got["BV3C"].checked  # dạng thường trong tên bảng không làm mất mã
+    assert {c.value for c in an.detect(["BVL a", "BVL b", "CSDL (bvl.user)"])} == {"BVL"}  # tên schema bvl.user không làm mất mã BVL
     assert got["Cục tác chiến điện tử"].kind == "ORG"
     assert got["Viettel"].kind == "ORG"
     assert "Phòng ngừa" not in got and "Ban hành" not in got
